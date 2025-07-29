@@ -1,0 +1,94 @@
+from infrastructure.db.session import Base
+from sqlalchemy import (
+    Boolean,
+    Column,
+    Date,
+    DateTime,
+    Float,
+    ForeignKey,
+    Integer,
+    String,
+    Table,
+    Time,
+)
+from sqlalchemy.orm import relationship
+
+
+class User(Base):
+    __tablename__ = "users"
+    id = Column(Integer, primary_key=True, index=True)
+    username = Column(String, unique=True, index=True)
+    email = Column(String, unique=True, index=True)
+    hashed_password = Column(String)
+    assigned_tasks = relationship(
+        "Task", secondary="task_assignees", back_populates="assignees"
+    )
+    my_tasks = relationship("Task", back_populates="owner")
+
+
+class Task(Base):
+    __tablename__ = "tasks"
+    id = Column(Integer, primary_key=True, index=True)
+    description = Column(String, index=True)
+    end_date = Column(DateTime)
+    estimated_hr = Column(Float)
+    done_hr = Column(Float, default=0.0)
+    is_repititive = Column(Boolean, default=False)
+    status = Column(String, default="pending")
+    start_date = Column(DateTime)
+    main_task_id = Column(Integer, ForeignKey("tasks.id"), nullable=True)
+    owner_id = Column(Integer, ForeignKey("users.id"))
+    is_stopped = Column(Boolean, default=False, nullable=False)
+
+    main_task = relationship("Task", remote_side=[id], back_populates="subtasks")
+    subtasks = relationship("Task", back_populates="main_task")
+    time_logs = relationship("TimeLog", back_populates="task")
+    assignees = relationship(
+        "User", secondary="task_assignees", back_populates="assigned_tasks"
+    )
+    owner = relationship("User", foreign_keys=[owner_id], back_populates="my_tasks")
+    progress = relationship("TaskProgress", back_populates="task")
+
+
+task_assignees = Table(
+    "task_assignees",
+    Base.metadata,
+    Column("user_id", Integer, ForeignKey("users.id")),
+    Column("task_id", Integer, ForeignKey("tasks.id")),
+)
+
+
+class DayPlan(Base):
+    __tablename__ = "plans"
+
+    id = Column(Integer, primary_key=True, index=True)
+    date = Column(Date, index=True)
+
+    times = relationship("TimeLog", back_populates="plan")
+
+
+class TimeLog(Base):
+    __tablename__ = "times"
+
+    id = Column(Integer, primary_key=True, index=True)
+    end_time = Column(Time)
+    start_time = Column(Time)
+    task_id = Column(Integer, ForeignKey("tasks.id"))
+    plan_id = Column(Integer, ForeignKey("plans.id"))
+
+    plan = relationship("DayPlan", back_populates="times")
+    task = relationship("Task", back_populates="time_logs")
+
+
+class TaskProgress(Base):
+    __tablename__ = "task_progress"
+
+    id = Column(Integer, primary_key=True, index=True)
+    task_id = Column(Integer, ForeignKey("tasks.id"))
+    start_date = Column(DateTime)
+    end_date = Column(DateTime)
+    status = Column(String)
+    done_hr = Column(Float, default=0.0)
+    estimated_hr = Column(Float)
+
+    task = relationship("Task", back_populates="progress")
