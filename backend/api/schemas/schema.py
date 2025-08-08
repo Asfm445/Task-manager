@@ -2,7 +2,7 @@ from datetime import datetime, time
 from enum import Enum
 from typing import List, Optional
 
-from pydantic import BaseModel, EmailStr, validator
+from pydantic import BaseModel, ConfigDict, EmailStr, field_validator
 
 
 class TaskStatus(str, Enum):
@@ -32,8 +32,7 @@ class Task(TaskBase):
     assignees: Optional[List[int]] = []
     owner_id: Optional[int] = None  # <-- Add this
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class DayPlanBase(BaseModel):
@@ -48,8 +47,7 @@ class DayPlan(DayPlanBase):
     id: int
     times: Optional[List[int]] = []
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class TimeBase(BaseModel):
@@ -58,7 +56,7 @@ class TimeBase(BaseModel):
     end_time: time
     plan_id: int
 
-    @validator("end_time")
+    @field_validator("end_time")
     def end_after_start(cls, v, values):
         if "start_time" in values and v <= values["start_time"]:
             raise ValueError("end_time must be after start_time")
@@ -72,8 +70,7 @@ class TimeCreate(TimeBase):
 class Time(TimeBase):
     id: int
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class UserBase(BaseModel):
@@ -90,8 +87,7 @@ class User(UserBase):
     assigned_tasks: Optional[List[int]] = []
     my_tasks: Optional[List[int]] = []
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class TaskProgressBase(BaseModel):
@@ -110,9 +106,13 @@ class TaskProgressCreate(TaskProgressBase):
 class TaskProgress(TaskProgressBase):
     id: int
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class AssignUserInput(BaseModel):
     assignee_email: EmailStr
+
+
+class LoginInput(BaseModel):
+    username: str
+    password: str

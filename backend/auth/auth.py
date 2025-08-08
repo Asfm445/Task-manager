@@ -1,11 +1,11 @@
+from api.schemas.schema import User as UserRead
+from api.schemas.schema import UserCreate
 from auth.auth_jwt import create_access_token
 from auth.auth_password import hash_password, verify_password
 from dependencies import get_db
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-from models.model import User as UserModel
-from schemas.schema import User as UserRead
-from schemas.schema import UserCreate
+from infrastructure.models.model import User as UserModel
 from sqlalchemy.orm import Session
 
 router = APIRouter()

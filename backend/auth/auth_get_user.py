@@ -3,8 +3,8 @@ from auth.auth import Oauth2_scheme
 from auth.auth_jwt import ALGORITHM, SECRET_KEY
 from dependencies import get_db
 from fastapi import Depends, HTTPException, status
+from infrastructure.models.model import User
 from jose import JWTError, jwt
-from models.model import User
 from sqlalchemy.orm import Session
 
 
