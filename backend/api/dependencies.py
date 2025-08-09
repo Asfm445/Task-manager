@@ -50,9 +50,11 @@ def get_current_user(
     ),  # or Depends(get_user_usecase)
 ):
     try:
-        payload = user_usecase.jwt_service.decode_token(
+        payload, err = user_usecase.jwt_service.decode_token(
             token
         )  # calls JwtService internally
+        if not payload:
+            raise HTTPException(status_code=400, detail=err)
         username = payload.get("username")
         email = payload.get("email")
         if username is None:

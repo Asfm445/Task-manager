@@ -32,11 +32,11 @@ class JwtService:
 
     def decode_token(self, token: str):
         try:
-            return jwt.decode(token, self.SECRET_KEY, algorithms=[self.ALGORITHM])
+            return jwt.decode(token, self.SECRET_KEY, algorithms=[self.ALGORITHM]), None
         except ExpiredSignatureError:
-            raise BadRequestError("Token has expired")
+            return None, "token is expired!"
         except JWTError:
-            raise BadRequestError("Invalid token")
+            return None, "token is invalid"
 
     def create_access_token(self, data: dict):
         return self.create_token(

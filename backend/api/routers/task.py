@@ -1,7 +1,7 @@
 from typing import List
 
 from api.dependencies import get_current_user, get_task_service
-from api.schemas.schema import AssignUserInput, Task, TaskCreate
+from api.schemas.schema import AssignUserInput, Task, TaskCreate, TaskUpdate
 from api.utilities.handle_service_result import handle_service_result
 from fastapi import APIRouter, Depends
 
@@ -53,7 +53,7 @@ def delete_task(
     return result
 
 
-@router.put("/assign/{task_id}", response_model=Task)
+@router.post("/assign/{task_id}", response_model=Task)
 @handle_service_result
 def assign_user_to_task(
     task_id: int,
@@ -62,4 +62,17 @@ def assign_user_to_task(
     current_user=Depends(get_current_user),
 ):
     result = service.assign_user_to_task(task_id, data.assignee_email, current_user)
+    return result
+
+
+@router.patch("/{task_id}", response_model=Task)
+@handle_service_result
+def update_task(
+    task_id: int,
+    data: TaskUpdate,
+    service=Depends(get_task_service),
+    current_user=Depends(get_current_user),
+):
+    task_data = data.model_dump(exclude_unset=True)
+    result = service.update_task(task_id, task_data, current_user)
     return result

@@ -49,9 +49,9 @@ class UserUsecase:
         return user
 
     def RefreshToken(self, token):
-        payload = self.jwt_service.decode_token(token)
+        payload, err = self.jwt_service.decode_token(token)
         if not payload:
-            raise BadRequestError("Invalid token")
+            raise BadRequestError(err)
 
         result = self.tokenRepo.FindByID(payload["id"])
         if not result:
@@ -68,10 +68,4 @@ class UserUsecase:
         access_token = self.jwt_service.create_access_token(
             data={"username": user.username, "email": user.email}
         )
-        return {"access_token": access_token}
-        return {"access_token": access_token}
-        return {"access_token": access_token}
-        return {"access_token": access_token}
-        return {"access_token": access_token}
-        return {"access_token": access_token}
         return {"access_token": access_token}

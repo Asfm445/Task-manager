@@ -69,7 +69,8 @@ class TaskService:
             task_data["start_date"] = datetime.now(timezone.utc)
         elif task_data["start_date"] < datetime.now(timezone.utc):
             raise BadRequestError("Start date cannot be in the past")
-
+        if task_data["estimated_hr"] < 0:
+            raise BadRequestError("Estimated hours cannot be negative")
         # Validate end date
         if task_data["end_date"] < task_data["start_date"]:
             raise BadRequestError("End date cannot be before start date")
@@ -119,3 +120,25 @@ class TaskService:
             raise BadRequestError(error)
 
         return self._to_task_output(task)
+
+    def update_task(self, task_id: int, task_data: dict, current_user):
+        task = self.repo.get_task(task_id)
+        if not task:
+            raise NotFoundError("Task not found")
+        if task_data.get("end_date") and task_data.get("start_date"):
+            if task_data["end_date"] < task_data["start_date"]:
+                raise BadRequestError("End date cannot be before start date")
+
+        if task_data.get("start_date"):
+            if task_data["start_date"] < datetime.now(timezone.utc):
+                raise BadRequestError("Start date cannot be in the past")
+        elif task_data.get("end_date"):
+            if task_data["end_date"] < datetime.now(timezone.utc):
+                raise BadRequestError("End date cannot be in the past")
+            if task_data["end_date"] < task.start_date:
+                raise BadRequestError("End date cannot be before start date")
+        if task_data.get("estimated_hr"):
+            if task_data["estimated_hr"] < 0:
+                raise BadRequestError("Estimated hours cannot be negative")
+        updated_task = self.repo.update_task(task_id, task_data)
+        return self._to_task_output(updated_task)

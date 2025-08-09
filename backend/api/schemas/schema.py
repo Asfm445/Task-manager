@@ -75,3 +75,13 @@ class Time(TimeBase):
 
 class AssignUserInput(BaseModel):
     assignee_email: EmailStr
+
+
+class TaskUpdate(BaseModel):
+    description: Optional[str] = None
+    end_date: Optional[datetime] = None
+    estimated_hr: Optional[int] = None
+    is_repititive: Optional[bool] = None
+    status: Optional[TaskStatus] = None
+    start_date: Optional[datetime] = None
+    main_task_id: Optional[int] = None

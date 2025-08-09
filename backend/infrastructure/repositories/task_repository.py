@@ -54,3 +54,21 @@ class TaskRepository:
         self.db.commit()
         self.db.refresh(task)
         return task, None
+
+    def update_task(self, task_id: int, data: dict):
+        task = self.db.query(Task).filter(Task.id == task_id).first()
+        if not task:
+            return None, "Task not found"
+
+        for key, value in data.items():
+            if hasattr(task, key):
+                setattr(task, key, value)
+
+        try:
+            self.db.commit()
+            self.db.refresh(task)
+        except Exception as e:
+            self.db.rollback()
+            return None, f"Update failed: {str(e)}"
+
+        return task
