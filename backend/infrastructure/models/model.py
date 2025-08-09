@@ -24,6 +24,7 @@ class User(Base):
         "Task", secondary="task_assignees", back_populates="assignees"
     )
     my_tasks = relationship("Task", back_populates="owner")
+    tokens = relationship("Token", back_populates="user")
 
 
 class Task(Base):
@@ -92,3 +93,15 @@ class TaskProgress(Base):
     estimated_hr = Column(Float)
 
     task = relationship("Task", back_populates="progress")
+
+
+class Token(Base):
+    __tablename__ = "tokens"
+
+    id = Column(String, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    token = Column(String)
+    expired_at = Column(DateTime)
+    created_at = Column(DateTime)
+
+    user = relationship("User", back_populates="tokens")

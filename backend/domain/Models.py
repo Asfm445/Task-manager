@@ -45,6 +45,7 @@ class TaskOutput(TaskCreateInput):
         self.owner_id = owner_id
 
 
+# Domain model for user input (register)
 class UserRegister:
     def __init__(self, username: str, email: str, password: str):
         self.username = username
@@ -52,21 +53,48 @@ class UserRegister:
         self.password = password
 
 
-class User(UserRegister):
+# Domain model for user (business layer)
+class User:
     def __init__(
         self,
         id: int,
-        assigned_tasks: Optional[List[int]] = [],
-        my_tasks: Optional[List[int]] = [],
-        **kwargs
+        username: str,
+        email: str,
+        hashed_password: str,
+        assigned_tasks=None,
+        my_tasks=None,
     ):
-        super().__init__(**kwargs)
         self.id = id
-        self.assigned_tasks = assigned_tasks
-        self.my_tasks = my_tasks
+        self.hashed_password = hashed_password
+        self.username = username
+        self.email = email
+        self.assigned_tasks = assigned_tasks or []
+        self.my_tasks = my_tasks or []
+
+
+# Conversion: from UserRegister to SQLAlchemy User mode
+
+
+# Conversion: from SQLAlchemy UserModel to domain User
 
 
 class UserLogin:
     def __init__(self, email: str, password: str):
         self.email = email
         self.password = password
+
+
+class Token:
+    def __init__(
+        self,
+        id: str,
+        token: str,
+        user_id: int,
+        created_at: datetime,
+        expired_at: datetime,
+    ):
+        self.id = id
+        self.token = token
+        self.user_id = user_id
+        self.created_at = created_at
+        self.expired_at = expired_at

@@ -73,46 +73,5 @@ class Time(TimeBase):
     model_config = ConfigDict(from_attributes=True)
 
 
-class UserBase(BaseModel):
-    username: str
-    email: EmailStr
-
-
-class UserCreate(UserBase):
-    password: str
-
-
-class User(UserBase):
-    id: int
-    assigned_tasks: Optional[List[int]] = []
-    my_tasks: Optional[List[int]] = []
-
-    model_config = ConfigDict(from_attributes=True)
-
-
-class TaskProgressBase(BaseModel):
-    start_date: datetime
-    end_date: datetime
-    task_id: int
-    status: str
-    done_hr: float
-    estimated_hr: float
-
-
-class TaskProgressCreate(TaskProgressBase):
-    pass
-
-
-class TaskProgress(TaskProgressBase):
-    id: int
-
-    model_config = ConfigDict(from_attributes=True)
-
-
 class AssignUserInput(BaseModel):
     assignee_email: EmailStr
-
-
-class LoginInput(BaseModel):
-    username: str
-    password: str

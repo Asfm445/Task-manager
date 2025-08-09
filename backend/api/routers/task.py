@@ -1,9 +1,8 @@
 from typing import List
 
+from api.dependencies import get_current_user, get_task_service
 from api.schemas.schema import AssignUserInput, Task, TaskCreate
 from api.utilities.handle_service_result import handle_service_result
-from auth.auth_get_user import get_current_user
-from dependencies import get_task_service
 from fastapi import APIRouter, Depends
 
 router = APIRouter()

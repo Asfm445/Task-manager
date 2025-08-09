@@ -1,15 +1,12 @@
-# tests/services/test_task_service.py
-
-# from datetime import datetime, timedelta
-from asyncio import tasks
 from datetime import datetime
 from unittest.mock import ANY, MagicMock
 
 import pytest
-from api.schemas.schema import Task, TaskCreate, User
+from api.schemas.schema import Task, TaskCreate
 from domain.exceptions import BadRequestError, NotFoundError
-from domain.Models import TaskCreateInput, TaskOutput
-from services.task_service import TaskService
+
+# from domain.Models import TaskCreateInput, TaskOutput
+from usecases.task_usecase import TaskService
 
 
 class Test_get_task:
@@ -299,5 +296,6 @@ class Test_get_tasks:
         # Assert
         assert len(result) == 2
         assert result[0].id == 1
+        assert result[1].id == 3
         assert result[1].id == 3
         assert result[1].id == 3
