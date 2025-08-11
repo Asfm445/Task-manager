@@ -1,7 +1,13 @@
-from typing import List
+from typing import List, Optional
 
 from api.dependencies import get_current_user, get_task_service
-from api.schemas.schema import AssignUserInput, Task, TaskCreate, TaskUpdate
+from api.schemas.schema import (
+    AssignUserInput,
+    Task,
+    TaskCreate,
+    TaskProgress,
+    TaskUpdate,
+)
 from api.utilities.handle_service_result import handle_service_result
 from fastapi import APIRouter, Depends
 
@@ -76,3 +82,37 @@ def update_task(
     task_data = data.model_dump(exclude_unset=True)
     result = service.update_task(task_id, task_data, current_user)
     return result
+
+
+@router.post("/start/{task_id}")
+@handle_service_result
+def start_task(
+    task_id: int,
+    service=Depends(get_task_service),
+    current_user=Depends(get_current_user),
+):
+    result = service.toggle_task(task_id, False, current_user)
+    return result
+
+
+@router.post("/stop/{task_id}")
+@handle_service_result
+def stop_task(
+    task_id: int,
+    service=Depends(get_task_service),
+    current_user=Depends(get_current_user),
+):
+    result = service.toggle_task(task_id, True, current_user)
+    return result
+
+
+@router.get("/progress/{task_id}", response_model=List[TaskProgress])
+@handle_service_result
+def task_progress(
+    task_id: int,
+    skip: Optional[int] = 0,
+    limit: Optional[int] = 20,
+    service=Depends(get_task_service),
+    current_user=Depends(get_current_user),
+):
+    return service.get_progress(task_id, current_user, skip, limit)

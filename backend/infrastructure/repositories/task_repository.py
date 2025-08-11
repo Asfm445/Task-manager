@@ -1,4 +1,6 @@
-from infrastructure.models.model import Task, TaskProgress, User
+from datetime import datetime, timezone
+
+from infrastructure.models.model import StopProgress, Task, TaskProgress, User
 from sqlalchemy.orm import Session
 
 
@@ -72,3 +74,37 @@ class TaskRepository:
             return None, f"Update failed: {str(e)}"
 
         return task
+
+    def create_stop(self, task_id):
+        db_stop = StopProgress(task_id=task_id, stopped_at=datetime.now(timezone.utc))
+        self.db.add(db_stop)
+        self.db.commit()
+        self.db.refresh(db_stop)
+        return db_stop
+
+    def delete_stop(self, task_id):
+        stop = (
+            self.db.query(StopProgress).filter(StopProgress.task_id == task_id).first()
+        )
+        if not stop:
+            return None
+        self.db.delete(stop)
+        self.db.commit()
+        return None
+
+    def get_stop(self, task_id):
+        stop = (
+            self.db.query(StopProgress).filter(StopProgress.task_id == task_id).first()
+        )
+        if not stop:
+            return None
+        return stop
+
+    def get_progress(self, task_id, skip: int = 0, limit: int = 100):
+        return (
+            self.db.query(TaskProgress)
+            .filter(TaskProgress.task_id == task_id)
+            .offset(skip)
+            .limit(limit)
+            .all()
+        )

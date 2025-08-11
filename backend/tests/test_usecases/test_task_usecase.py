@@ -170,9 +170,7 @@ class Test_create_task:
             "start_date": "2025-08-28T05:38:07.665Z",
             "main_task_id": None,
         }
-        with pytest.raises(
-            BadRequestError, match="End date cannot be before start date"
-        ):
+        with pytest.raises(BadRequestError, match="End date cannot be in the past"):
             service.create_task(task=TaskCreate(**task_data), current_user=mock_user)
 
 

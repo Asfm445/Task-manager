@@ -1,6 +1,7 @@
 from fastapi import Depends, HTTPException
 from fastapi.security import OAuth2PasswordBearer
 from infrastructure.db.session import SessionLocal
+from infrastructure.repositories.dayplan_repository import DayPlanRepository
 from infrastructure.repositories.task_repository import TaskRepository
 from infrastructure.repositories.token_repository import TokenRepository
 from infrastructure.repositories.user_repository import UserRepository
@@ -8,6 +9,7 @@ from infrastructure.services.jwt_service import JwtService
 from infrastructure.services.password_service import PasswordService
 from jose import JWTError
 from sqlalchemy.orm import Session
+from usecases.dayplan_usecase import DayPlanUseCase
 
 # from fastapi import Depends
 from usecases.task_usecase import TaskService
@@ -41,6 +43,11 @@ def get_user_usecase(db: Session = Depends(get_db)) -> UserUsecase:
     )
     password_service = PasswordService()
     return UserUsecase(repo, password_service, jwt_service, tokenRepo)
+
+
+def get_dayplan_usecase(db: Session = Depends(get_db)) -> DayPlanUseCase:
+    repo = DayPlanRepository(db)
+    return DayPlanUseCase(repo)
 
 
 def get_current_user(

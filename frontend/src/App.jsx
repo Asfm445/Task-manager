@@ -5,6 +5,8 @@ import Sidebar from "./components/Sidebar";
 import { Routes, Route, Navigate } from "react-router-dom";
 import Tasks from "./pages/Tasks";
 import Header from "./components/Header";
+import Login from "./pages/Login";
+import Register from "./pages/Register";
 
 export default function App() {
   return (
@@ -14,6 +16,8 @@ export default function App() {
         <Route path="/plans" element={<PlanPage />} />
         <Route path="/tasks" element={<Tasks />} />
         <Route path="/" element={<Navigate to="/plans" />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
       </Routes>
     </>
   );

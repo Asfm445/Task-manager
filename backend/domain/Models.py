@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, time
 from enum import Enum
 from typing import List, Optional
 
@@ -98,3 +98,17 @@ class Token:
         self.user_id = user_id
         self.created_at = created_at
         self.expired_at = expired_at
+
+
+class TimeLogCreate:
+    def __init__(self, task_id: int, start_time: time, end_time: time, plan_id: int):
+        self.task_id = task_id
+        self.end_time = end_time
+        self.start_time = start_time
+        self.plan_id = plan_id
+
+
+class TimeLog(TimeLogCreate):
+    def ___init___(self, id: int, **kwargs):
+        super.__init___(**kwargs)
+        self.id = id
