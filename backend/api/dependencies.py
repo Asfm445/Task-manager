@@ -47,7 +47,8 @@ def get_user_usecase(db: Session = Depends(get_db)) -> UserUsecase:
 
 def get_dayplan_usecase(db: Session = Depends(get_db)) -> DayPlanUseCase:
     repo = DayPlanRepository(db)
-    return DayPlanUseCase(repo)
+    task_repo = TaskRepository(db)
+    return DayPlanUseCase(repo, task_repo)
 
 
 def get_current_user(

@@ -11,7 +11,7 @@ function Login() {
       type={"Login"}
       inputs={inputs}
       setInputs={setInputs}
-      apiUrl={"api/token/"}
+      apiUrl={"auth/token"}
     ></Form>
   );
 }

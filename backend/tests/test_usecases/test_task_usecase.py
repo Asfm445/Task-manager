@@ -2,7 +2,7 @@ from datetime import datetime
 from unittest.mock import ANY, MagicMock
 
 import pytest
-from api.schemas.schema import Task, TaskCreate
+from api.schemas.task_schema import Task, TaskCreate
 from domain.exceptions import BadRequestError, NotFoundError
 
 # from domain.Models import TaskCreateInput, TaskOutput

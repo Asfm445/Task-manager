@@ -1,7 +1,8 @@
 from typing import List, Optional
 
 from api.dependencies import get_current_user, get_task_service
-from api.schemas.schema import (
+from api.dto import task_dto
+from api.schemas.task_schema import (
     AssignUserInput,
     Task,
     TaskCreate,
@@ -21,6 +22,7 @@ def create_task(
     service=Depends(get_task_service),
     current_user=Depends(get_current_user),
 ):
+    task = task_dto.pydantic_to_domain_task_create(task)
     result = service.create_task(task, current_user)
     return result
 

@@ -14,7 +14,7 @@ function Register() {
       type={"Register"}
       inputs={inputs}
       setInputs={setInputs}
-      apiUrl={"api/user/register/"}
+      apiUrl={"auth/register"}
     ></Form>
   );
 }

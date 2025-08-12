@@ -1,5 +1,13 @@
 from datetime import datetime, timezone
+from typing import List
 
+from domain.models.task_model import TaskCreateInput, TaskOutput, TaskProgressDomain
+from infrastructure.dto.task_dto import (
+    domain_to_orm_task_create,
+    domain_to_orm_task_progress,
+    orm_to_domain_task_output,
+    orm_to_domain_task_progress,
+)
 from infrastructure.models.model import StopProgress, Task, TaskProgress, User
 from sqlalchemy.orm import Session
 
@@ -8,18 +16,22 @@ class TaskRepository:
     def __init__(self, db: Session):
         self.db = db
 
-    def get_task(self, task_id: int):
-        return self.db.query(Task).filter(Task.id == task_id).first()
+    def get_task(self, task_id: int) -> TaskOutput:
+        result = self.db.query(Task).filter(Task.id == task_id).first()
+        if not result:
+            return None
+        return orm_to_domain_task_output(result)
 
-    def get_tasks(self, skip: int = 0, limit: int = 100):
-        return self.db.query(Task).offset(skip).limit(limit).all()
+    def get_tasks(self, skip: int = 0, limit: int = 100) -> List[TaskOutput]:
+        result = self.db.query(Task).offset(skip).limit(limit).all()
+        return [orm_to_domain_task_output(task) for task in result]
 
-    def create_task(self, task: dict):
-        db_task = Task(**task)
+    def create_task(self, task: TaskCreateInput, owner_id: int) -> TaskOutput:
+        db_task = domain_to_orm_task_create(task, owner_id)
         self.db.add(db_task)
         self.db.commit()
         self.db.refresh(db_task)
-        return db_task
+        return orm_to_domain_task_output(db_task)
 
     def delete_task(self, task_id: int, owner_id: int):
         task = (
@@ -33,12 +45,12 @@ class TaskRepository:
             return True
         return False
 
-    def create_progress(self, progress: dict):
-        db_progress = TaskProgress(**progress)
+    def create_progress(self, progress: TaskProgressDomain) -> TaskProgressDomain:
+        db_progress = domain_to_orm_task_progress(progress)
         self.db.add(db_progress)
         self.db.commit()
         self.db.refresh(db_progress)
-        return db_progress
+        return orm_to_domain_task_progress(db_progress)
 
     # repositories/task_repo.py
 
@@ -55,7 +67,7 @@ class TaskRepository:
         task.assignees.append(user)
         self.db.commit()
         self.db.refresh(task)
-        return task, None
+        return orm_to_domain_task_output(task)
 
     def update_task(self, task_id: int, data: dict):
         task = self.db.query(Task).filter(Task.id == task_id).first()
@@ -63,7 +75,7 @@ class TaskRepository:
             return None, "Task not found"
 
         for key, value in data.items():
-            if hasattr(task, key):
+            if hasattr(task, key) and value is not None:
                 setattr(task, key, value)
 
         try:
@@ -73,7 +85,7 @@ class TaskRepository:
             self.db.rollback()
             return None, f"Update failed: {str(e)}"
 
-        return task
+        return orm_to_domain_task_output(task)
 
     def create_stop(self, task_id):
         db_stop = StopProgress(task_id=task_id, stopped_at=datetime.now(timezone.utc))

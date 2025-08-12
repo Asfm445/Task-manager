@@ -1,7 +1,23 @@
 from api.routers import dayplan_router, task, user_router
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
+
+# Allow your frontend's origin
+origins = [
+    "http://localhost:5173",  # React dev server
+    # Add more origins if needed
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,  # Allowed origins
+    allow_credentials=True,
+    allow_methods=["*"],  # Allow all HTTP methods (GET, POST, etc.)
+    allow_headers=["*"],  # Allow all headers
+)
+
 
 app.include_router(task.router, prefix="/tasks", tags=["Tasks"])
 app.include_router(dayplan_router.router, prefix="/plans", tags=["Plans"])

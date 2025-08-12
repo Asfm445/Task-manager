@@ -1,8 +1,7 @@
+from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from typing import List, Optional
-
-from pydantic import BaseModel, ConfigDict, EmailStr
 
 
 class TaskStatus(str, Enum):
@@ -12,45 +11,49 @@ class TaskStatus(str, Enum):
     stopped = "stopped"
 
 
-class TaskBase(BaseModel):
+@dataclass
+class TaskCreateInput:
     description: str
     end_date: datetime
     estimated_hr: float
-    is_stopped: bool = False
     is_repititive: bool = False
+    is_stopped: bool = False
+    done_hr: float = 0.0
     status: TaskStatus = TaskStatus.pending
     start_date: Optional[datetime] = None
     main_task_id: Optional[int] = None
 
 
-class TaskCreate(TaskBase):
-    pass
-
-
-class Task(TaskBase):
+@dataclass
+class TaskOutput:
     id: int
-    subtasks: Optional[List[int]] = []
-    assignees: Optional[List[int]] = []
-    owner_id: Optional[int] = None  # <-- Add this
+    description: str
+    end_date: datetime
+    estimated_hr: float
+    is_repititive: bool = False
+    is_stopped: bool = False
+    done_hr: float = 0.0
+    status: TaskStatus = TaskStatus.pending
+    start_date: Optional[datetime] = None
+    main_task_id: Optional[int] = None
+    subtasks: List[int] = field(default_factory=list)
+    assignees: List[int] = field(default_factory=list)
+    owner_id: Optional[int] = None
 
-    model_config = ConfigDict(from_attributes=True)
 
-
-class AssignUserInput(BaseModel):
-    assignee_email: EmailStr
-
-
-class TaskUpdate(BaseModel):
+@dataclass
+class TaskUpdateInput:
     description: Optional[str] = None
     end_date: Optional[datetime] = None
-    estimated_hr: Optional[int] = None
+    estimated_hr: Optional[float] = None
     is_repititive: Optional[bool] = None
     status: Optional[TaskStatus] = None
     start_date: Optional[datetime] = None
     main_task_id: Optional[int] = None
 
 
-class TaskProgress(BaseModel):
+@dataclass
+class TaskProgressDomain:
     task_id: int
     start_date: datetime
     end_date: datetime

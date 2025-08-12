@@ -29,12 +29,12 @@ export async function checkIsAuthorized() {
     // Attempt token refresh if no valid access token
     try {
       console.log("Attempting to refresh token...");
-      const response = await api.post("/api/token/refresh/", {
-        refresh: refreshToken,
+      const response = await api.post("auth/refresh", {
+        refresh_token: refreshToken,
       });
 
       if (response.status === 200) {
-        localStorage.setItem("access_token", response.data.access);
+        localStorage.setItem("access_token", response.data.access_token);
         return true;
       }
     } catch (refreshError) {

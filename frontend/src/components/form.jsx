@@ -22,18 +22,9 @@ function Form(props) {
     try {
       const res = await api.post(props.apiUrl, props.inputs);
       if (props.type === "Login") {
-        localStorage.setItem("access_token", res.data.access);
-        localStorage.setItem("refresh_token", res.data.refresh);
-        try {
-          let res2 = await api.get("api/profile/");
-          if (res2.status === 200) {
-            navigate("/");
-          }
-        } catch (error) {
-          if (error.status === 404) {
-            navigate("/profile");
-          }
-        }
+        localStorage.setItem("access_token", res.data.access_token);
+        localStorage.setItem("refresh_token", res.data.refresh_token);
+        navigate("/");
       } else {
         navigate("/login");
       }

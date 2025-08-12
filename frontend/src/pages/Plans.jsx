@@ -1,46 +1,65 @@
-// src/pages/PlanPage.jsx
-import React, { useState } from "react";
-import { Link } from "react-router-dom";
+import React, { useState, useEffect } from "react";
 import { format, addDays, subDays } from "date-fns";
-
-const mockTimeLogs = {
-  "2025-07-20": [
-    { start: "08:00", end: "10:00", task: "Fix bug #432" },
-    { start: "14:00", end: "16:00", task: "Design login page" },
-  ],
-  "2025-07-21": [{ start: "09:00", end: "12:00", task: "Code review PR #108" }],
-  "2025-07-22": [{ start: "11:00", end: "13:30", task: "Write documentation" }],
-};
-
-const mockTasks = [
-  "Fix bug #432",
-  "Design login page",
-  "Code review PR #108",
-  "Write documentation",
-];
+import api from "../api"; // <-- import your axios instance here
 
 export default function PlanPage() {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [showForm, setShowForm] = useState(false);
-  const [logsByDate, setLogsByDate] = useState(mockTimeLogs);
+  const [logs, setLogs] = useState([]);
   const [form, setForm] = useState({
     start: "",
     end: "",
-    task: mockTasks[0],
+    task: "",
   });
 
   const dateKey = format(selectedDate, "yyyy-MM-dd");
-  const logs = logsByDate[dateKey] || [];
+
+ useEffect(() => {
+  const fetchLogs = async () => {
+    try {
+      console.log("Sending to backend:", { date: dateKey });
+      const res = await api.post("plans/", { date: dateKey }); // POST with { date: 'yyyy-MM-dd' }
+      console.log("Fetched data for", dateKey, res.data);
+      setLogs(res.data.times || []);
+    } catch (err) {
+      console.error("Failed to fetch logs:", err);
+      setLogs([]);
+    }
+  };
+
+  fetchLogs();
+}, [dateKey]);
+
 
   const goToYesterday = () => setSelectedDate((prev) => subDays(prev, 1));
   const goToTomorrow = () => setSelectedDate((prev) => addDays(prev, 1));
 
-  const getDuration = (start, end) => {
-    const [sh, sm] = start.split(":").map(Number);
-    const [eh, em] = end.split(":").map(Number);
-    const duration = eh * 60 + em - (sh * 60 + sm);
-    return `${Math.floor(duration / 60)}h ${duration % 60}m`;
-  };
+ // Helper: format raw time string "HH:mm:ss.xxx" => "HH:mm"
+const formatTime = (timeStr) => {
+  if (!timeStr) return "";
+  const parts = timeStr.split(":");
+  if (parts.length < 2) return timeStr; // fallback
+  return `${parts[0].padStart(2, "0")}:${parts[1].padStart(2, "0")}`;
+};
+
+// Calculate duration between start and end times (ignore seconds)
+const getDuration = (start, end) => {
+  if (!start || !end) return "";
+
+  // Extract hours and minutes as numbers
+  const [sh, sm] = start.split(":").map(Number);
+  const [eh, em] = end.split(":").map(Number);
+
+  let duration = eh * 60 + em - (sh * 60 + sm);
+  if (duration < 0) duration = 0; // no negative durations
+
+  const hours = Math.floor(duration / 60);
+  const minutes = duration % 60;
+
+  return `${hours}h ${minutes}m`;
+};
+
+
 
   const handleFormChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -49,18 +68,15 @@ export default function PlanPage() {
   const handleAddLog = (e) => {
     e.preventDefault();
     if (!form.start || !form.end || !form.task) return;
-    setLogsByDate((prev) => ({
-      ...prev,
-      [dateKey]: [...(prev[dateKey] || []), { ...form }],
-    }));
-    setForm({ start: "", end: "", task: mockTasks[0] });
+    console.log("Submitting time log for", dateKey, form);
+    setForm({ start: "", end: "", task: "" });
     setShowForm(false);
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-gray-100">
-      {/* Main content */}
       <main className="max-w-3xl mx-auto py-12 px-4">
+        {/* ... your existing UI code for date navigation and logs display ... */}
         <div className="flex items-center justify-between mb-8">
           <button
             onClick={goToYesterday}
@@ -129,19 +145,15 @@ export default function PlanPage() {
                   <label className="block text-sm font-medium text-blue-700 mb-1">
                     Task
                   </label>
-                  <select
+                  <input
+                    type="text"
                     name="task"
                     value={form.task}
                     onChange={handleFormChange}
                     className="w-full px-3 py-2 rounded border border-blue-200 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                    placeholder="Task description"
                     required
-                  >
-                    {mockTasks.map((task, idx) => (
-                      <option key={idx} value={task}>
-                        {task}
-                      </option>
-                    ))}
-                  </select>
+                  />
                 </div>
               </div>
               <button
@@ -163,24 +175,29 @@ export default function PlanPage() {
           ) : (
             <ul className="space-y-4">
               {logs.map((log, i) => (
-                <li
-                  key={i}
-                  className="flex flex-col md:flex-row md:justify-between md:items-center bg-blue-50 rounded-lg px-5 py-3 border border-blue-100 shadow-sm hover:bg-blue-100 transition"
-                >
-                  <div className="flex items-center gap-4">
-                    <span className="font-mono text-lg text-blue-800">
-                      {log.start} <span className="mx-1 text-gray-400">–</span>{" "}
-                      {log.end}
-                    </span>
-                    <span className="text-sm text-blue-600 font-semibold bg-blue-100 px-3 py-1 rounded-full">
-                      {getDuration(log.start, log.end)}
-                    </span>
-                  </div>
-                  <span className="mt-2 md:mt-0 text-sm text-gray-700 font-medium">
-                    Task: <span className="text-blue-700">{log.task}</span>
-                  </span>
-                </li>
-              ))}
+  <li
+    key={i}
+    className="flex flex-col md:flex-row md:justify-between md:items-center bg-blue-50 rounded-lg px-5 py-3 border border-blue-100 shadow-sm hover:bg-blue-100 transition"
+  >
+    <div className="flex items-center gap-4">
+      <span className="font-mono text-lg text-blue-800">
+      {formatTime(log.start_time)} <span className="mx-1 text-gray-400">–</span>{" "}
+      {formatTime(log.end_time)}
+    </span>
+    <span className="text-sm text-blue-600 font-semibold bg-blue-100 px-3 py-1 rounded-full">
+      {getDuration(log.start_time, log.end_time)}
+    </span>
+
+    </div>
+    <span className="mt-2 md:mt-0 text-sm text-gray-700 font-medium">
+      Task:{" "}
+      <span className="text-blue-700">
+        {log.task?.description || log.task || log.task_id || "No description"}
+      </span>
+    </span>
+  </li>
+))}
+
             </ul>
           )}
         </div>

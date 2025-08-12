@@ -1,27 +1,13 @@
 from datetime import datetime, timezone
 
 from domain.exceptions import BadRequestError, NotFoundError
-from domain.Models import TaskCreateInput, TaskOutput
+from domain.models.task_model import TaskCreateInput, TaskOutput
+from domain.repositories.task_repo import AbstractTaskRepository
 
 
 class TaskService:
-    def __init__(self, repo):
+    def __init__(self, repo: AbstractTaskRepository):
         self.repo = repo
-
-    def _to_task_output(self, task_orm) -> TaskOutput:
-        return TaskOutput(
-            id=task_orm.id,
-            description=task_orm.description,
-            end_date=task_orm.end_date,
-            estimated_hr=task_orm.estimated_hr,
-            is_repititive=task_orm.is_repititive,
-            status=task_orm.status,
-            start_date=task_orm.start_date,
-            main_task_id=task_orm.main_task_id,
-            subtasks=[sub.id for sub in getattr(task_orm, "subtasks", [])],
-            assignees=[u.id for u in getattr(task_orm, "assignees", [])],
-            owner_id=task_orm.owner_id,
-        )
 
     def _normalize_datetime(self, dt):
         if dt and dt.tzinfo is None:
@@ -41,11 +27,10 @@ class TaskService:
             if start_date and end_date < start_date:
                 raise BadRequestError("End date cannot be before start date")
 
-    def _handle_repetitive_task(self, task, max_cycle=100):
+    def _handle_repetitive_task(self, task: TaskOutput, max_cycle=100):
         now = datetime.now()
         updated = False
         cycle = 0
-        print(type(task.end_date))
         while task.is_repititive and task.end_date <= now and not task.is_stopped:
             if cycle >= max_cycle:
                 return
@@ -71,39 +56,35 @@ class TaskService:
             self.repo.update_task(task)
 
     def create_task(self, task: TaskCreateInput, current_user):
-        task_data = task.__dict__
-        task_data["owner_id"] = current_user.id
 
-        if task_data.get("main_task_id"):
-            main_task = self.repo.get_task(task_data["main_task_id"])
+        if task.main_task_id:
+            main_task = self.repo.get_task(task.main_task_id)
             if not main_task:
                 raise NotFoundError("Main task not found")
             if main_task.owner_id != current_user.id:
                 raise PermissionError("Cannot create subtask for another user's task")
 
-        if not task_data.get("start_date"):
-            task_data["start_date"] = datetime.now(timezone.utc)
+        if not task.start_date:
+            task.start_date = datetime.now(timezone.utc)
 
-        task_data["start_date"] = self._normalize_datetime(task_data.get("start_date"))
-        task_data["end_date"] = self._normalize_datetime(task_data.get("end_date"))
+        task.start_date = self._normalize_datetime(task.start_date)
+        task.end_date = self._normalize_datetime(task.end_date)
 
-        if task_data["estimated_hr"] < 0:
+        if task.estimated_hr < 0:
             raise BadRequestError("Estimated hours cannot be negative")
 
-        self._validate_dates(task_data["start_date"], task_data.get("end_date"))
+        self._validate_dates(task.start_date, task.end_date)
 
-        task = self.repo.create_task(task_data)
-        return self._to_task_output(task)
+        task = self.repo.create_task(task, current_user.owner_id)
+        return task
 
     def get_task(self, task_id: int, current_user):
         task = self.repo.get_task(task_id)
         if not task:
             raise NotFoundError("Task not found")
 
-        if task.owner_id == current_user.id or current_user.id in [
-            u.id for u in task.assignees
-        ]:
-            return self._to_task_output(task)
+        if task.owner_id == current_user.id or current_user.id in task.assignees:
+            return task
 
         raise PermissionError("You don't have access to this task")
 
@@ -112,11 +93,9 @@ class TaskService:
         result = []
 
         for task in tasks:
-            if task.owner_id == current_user.id or current_user.id in [
-                u.id for u in task.assignees
-            ]:
+            if task.owner_id == current_user.id or current_user.id in task.assignees:
                 self._handle_repetitive_task(task)
-                result.append(self._to_task_output(task))
+                result.append(task)
 
         return result
 
@@ -136,7 +115,7 @@ class TaskService:
         if error:
             raise BadRequestError(error)
 
-        return self._to_task_output(task)
+        return task
 
     def update_task(self, task_id: int, task_data: dict, current_user):
         task = self.repo.get_task(task_id)
@@ -171,7 +150,7 @@ class TaskService:
             raise BadRequestError("Estimated hours cannot be negative")
 
         updated_task = self.repo.update_task(task_id, task_data)
-        return self._to_task_output(updated_task)
+        return updated_task
 
     def toggle_task(self, task_id: int, stop: bool, current_user):
         task = self.repo.get_task(task_id)
@@ -187,7 +166,7 @@ class TaskService:
             task.is_stopped = stop
             self.repo.create_stop(task_id)
             self.repo.update_task(task_id, {"is_stopped": stop})
-            return True
+            return {"message": "task stopped successfully"}
         elif task.is_stopped and not stop:
             task.is_stopped = stop
             self.repo.update_task(
@@ -205,7 +184,7 @@ class TaskService:
                 }
             )
             self.repo.delete_stop(task_id)
-            return True
+            return {"message": "task started successfully"}
         elif task.is_stopped:
             raise BadRequestError("task is already stopped")
         else:
