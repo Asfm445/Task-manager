@@ -1,4 +1,4 @@
-from datetime import date, datetime
+from datetime import date, datetime, time
 
 from domain.exceptions import BadRequestError, NotFoundError
 from domain.models.dayplan_model import TimeLogCreate
@@ -13,10 +13,11 @@ class DayPlanUseCase:
         self.repo = repo
         self.task_repo = task_repo
 
-    def _Duration(self, start_time: datetime, end_time: datetime) -> float:
-        """Return duration between start_time \
-        and end_time in hours (2 decimals)."""
-        delta = end_time - start_time
+    def _Duration(self, start_time: time, end_time: time) -> float:
+        # Combine with a date so subtraction works
+        start_dt = datetime.combine(date.today(), start_time)
+        end_dt = datetime.combine(date.today(), end_time)
+        delta = end_dt - start_dt
         return round(delta.total_seconds() / 3600, 2)
 
     def delete_dayplan(self, date: date, current_user):
@@ -61,7 +62,7 @@ class DayPlanUseCase:
 
         duration = self._Duration(time_log.start_time, time_log.end_time)
         task.done_hr += duration
-        self.task_repo.update_task(task)
+        self.task_repo.update_task(task.id, task.__dict__)
 
         # Pass the domain model directly to repository
         created_timelog = self.repo.create_time_log(time_log)

@@ -32,6 +32,8 @@ def orm_to_domain_task_output(orm_task: ORMTask) -> TaskOutput:
         estimated_hr=orm_task.estimated_hr,
         is_repititive=orm_task.is_repititive,
         status=orm_task.status,
+        done_hr=orm_task.done_hr,
+        is_stopped=orm_task.is_stopped,
         start_date=orm_task.start_date,
         main_task_id=orm_task.main_task_id,
         subtasks=(

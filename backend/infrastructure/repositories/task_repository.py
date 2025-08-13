@@ -24,6 +24,7 @@ class TaskRepository:
 
     def get_tasks(self, skip: int = 0, limit: int = 100) -> List[TaskOutput]:
         result = self.db.query(Task).offset(skip).limit(limit).all()
+
         return [orm_to_domain_task_output(task) for task in result]
 
     def create_task(self, task: TaskCreateInput, owner_id: int) -> TaskOutput:

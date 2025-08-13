@@ -16,8 +16,6 @@ class TaskBase(BaseModel):
     description: str
     end_date: datetime
     estimated_hr: float
-    done_hr: Optional[float] = 0.0
-    is_stopped: bool = False
     is_repititive: bool = False
     status: TaskStatus = TaskStatus.pending
     start_date: Optional[datetime] = None
@@ -30,6 +28,8 @@ class TaskCreate(TaskBase):
 
 class Task(TaskBase):
     id: int
+    done_hr: float
+    is_stopped: bool = False
     subtasks: Optional[List[int]] = []
     assignees: Optional[List[int]] = []
     owner_id: Optional[int] = None  # <-- Add this

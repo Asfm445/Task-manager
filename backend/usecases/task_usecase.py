@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 
 from domain.exceptions import BadRequestError, NotFoundError
-from domain.models.task_model import TaskCreateInput, TaskOutput
+from domain.models.task_model import TaskCreateInput, TaskOutput, TaskProgressDomain
 from domain.repositories.task_repo import AbstractTaskRepository
 
 
@@ -36,14 +36,16 @@ class TaskService:
                 return
             cycle += 1
             self.repo.create_progress(
-                {
-                    "task_id": task.id,
-                    "start_date": task.start_date,
-                    "end_date": task.end_date,
-                    "status": task.status,
-                    "done_hr": task.done_hr,
-                    "estimated_hr": task.estimated_hr,
-                }
+                TaskProgressDomain(
+                    **{
+                        "task_id": task.id,
+                        "start_date": task.start_date,
+                        "end_date": task.end_date,
+                        "status": task.status,
+                        "done_hr": task.done_hr,
+                        "estimated_hr": task.estimated_hr,
+                    }
+                )
             )
             interval = task.end_date - task.start_date
             task.start_date = task.end_date
@@ -53,7 +55,7 @@ class TaskService:
             updated = True
 
         if updated:
-            self.repo.update_task(task)
+            self.repo.update_task(task.id, task.__dict__)
 
     def create_task(self, task: TaskCreateInput, current_user):
 
@@ -75,7 +77,7 @@ class TaskService:
 
         self._validate_dates(task.start_date, task.end_date)
 
-        task = self.repo.create_task(task, current_user.owner_id)
+        task = self.repo.create_task(task, current_user.id)
         return task
 
     def get_task(self, task_id: int, current_user):
