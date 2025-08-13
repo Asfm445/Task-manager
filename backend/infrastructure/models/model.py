@@ -106,6 +106,7 @@ class TimeLog(Base):
     start_time = Column(Time)
     task_id = Column(Integer, ForeignKey("tasks.id", ondelete="CASCADE"))
     plan_id = Column(Integer, ForeignKey("plans.id", ondelete="CASCADE"))
+    done = Column(Boolean, default=False)
 
     plan = relationship("DayPlan", back_populates="times")
     task = relationship("Task", back_populates="time_logs")

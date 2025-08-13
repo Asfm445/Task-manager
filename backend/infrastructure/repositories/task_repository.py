@@ -73,7 +73,7 @@ class TaskRepository:
     def update_task(self, task_id: int, data: dict):
         task = self.db.query(Task).filter(Task.id == task_id).first()
         if not task:
-            return None, "Task not found"
+            return None
 
         for key, value in data.items():
             if hasattr(task, key) and value is not None:
@@ -82,9 +82,9 @@ class TaskRepository:
         try:
             self.db.commit()
             self.db.refresh(task)
-        except Exception as e:
+        except Exception:
             self.db.rollback()
-            return None, f"Update failed: {str(e)}"
+            return None
 
         return orm_to_domain_task_output(task)
 

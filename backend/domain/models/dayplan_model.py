@@ -24,4 +24,5 @@ class TimeLogCreate:
 @dataclass
 class TimeLog(TimeLogCreate):
     id: int
+    done: bool
     task: "TaskOutput"

@@ -4,6 +4,8 @@ from typing import Optional
 
 from domain.models.dayplan_model import DayPlan, TimeLog
 
+from .task_repo import AbstractTaskRepository
+
 
 class AbstractDayPlanRepository(ABC):
 
@@ -33,4 +35,10 @@ class AbstractDayPlanRepository(ABC):
 
     @abstractmethod
     def get_time_log(self, id: int) -> Optional[TimeLog]:
+        pass
+
+    @abstractmethod
+    def mark_timelog_success(
+        self, timelog_id: int, duration: float, task_repo: AbstractTaskRepository
+    ):
         pass

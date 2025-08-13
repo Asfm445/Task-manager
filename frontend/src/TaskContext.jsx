@@ -19,13 +19,15 @@ export const TaskProvider = ({ children }) => {
     try {
       const payload = {
         description: formData.description,
-        start_date: new Date(formData.start_date).toISOString(),
         end_date: new Date(formData.end_date).toISOString(),
         status: formData.status,
         estimated_hr: Number(formData.estimated_hr), // ensure string
         is_repititive: formData.is_repititive,
         main_task_id: formData.main_task_id || null,
         };
+        if(formData.startDate){
+            payload.start_date = new Date(formData.startDate).toISOString();
+        }
         console.log(payload)
       const res = await api.post("/tasks", payload);
       setTasks((prev) => [...prev, res.data]);

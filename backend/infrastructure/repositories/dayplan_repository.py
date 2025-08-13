@@ -1,7 +1,9 @@
 from datetime import date
 
+from domain.exceptions import BadRequestError, NotFoundError
 from domain.models.dayplan_model import TimeLog as dTimeLog
 from domain.repositories.dayplan_repo import AbstractDayPlanRepository
+from domain.repositories.task_repo import AbstractTaskRepository
 from infrastructure.dto.dayplan_dto import (
     domain_to_orm_timelog,
     orm_to_domain_dayplan,
@@ -64,3 +66,38 @@ class DayPlanRepository(AbstractDayPlanRepository):
         if not time_log:
             return None
         return orm_to_domain_timelog(time_log)
+
+    def mark_timelog_success(
+        self, timelog_id: int, duration: float, task_repo: AbstractTaskRepository
+    ):
+        try:
+            # with self.db.begin():  # transaction is only in repo
+            time_log = self.get_time_log(timelog_id)
+            if not time_log:
+                raise NotFoundError("Time log not found")
+
+            task = time_log.task
+            task.done_hr += duration
+
+            while task and task.done_hr >= task.estimated_hr:
+                data = {"done_hr": task.done_hr, "status": "completed"}
+                task = task_repo.update_task(task.id, data)
+                if not task:
+                    raise BadRequestError("Task update failed")
+
+                if task.main_task_id:
+                    sb_task_es_hr = task.estimated_hr
+                    task = task_repo.get_task(task.main_task_id)
+                    task.done_hr += sb_task_es_hr
+                else:
+                    break
+            else:
+                if task.status == "pending":
+                    task_repo.update_task(
+                        task.id, {"done_hr": task.done_hr, "status": "in_progress"}
+                    )
+
+            return time_log
+
+        except Exception:
+            raise

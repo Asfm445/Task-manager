@@ -35,9 +35,7 @@ class AbstractTaskRepository(ABC):
         pass
 
     @abstractmethod
-    def update_task(
-        self, task_id: int, data: dict
-    ) -> Tuple[Optional[TaskOutput], Optional[str]]:
+    def update_task(self, task_id: int, data: dict) -> Optional[TaskOutput]:
         """
         Returns (TaskOutput, None) on success, or (None, error_message) on failure.
         """

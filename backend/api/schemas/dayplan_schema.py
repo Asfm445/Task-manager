@@ -30,6 +30,7 @@ class TaskDescription(BaseModel):
 
 class Time(TimeBase):
     id: int
+    done: bool
     task: Optional[TaskDescription]
     model_config = ConfigDict(from_attributes=True)
 

@@ -60,9 +60,8 @@ class DayPlanUseCase:
         if task.owner_id != current_user.id:
             raise PermissionError("You don't have permission to work on this task")
 
-        duration = self._Duration(time_log.start_time, time_log.end_time)
-        task.done_hr += duration
-        self.task_repo.update_task(task.id, task.__dict__)
+        if task.status == "pending":
+            self.task_repo.update_task(task.id, {"status": "in progress"})
 
         # Pass the domain model directly to repository
         created_timelog = self.repo.create_time_log(time_log)
@@ -79,3 +78,21 @@ class DayPlanUseCase:
         if not timelog:
             return None  # or raise NotFound error
         return timelog
+
+    def mark_timelog_success(self, timelog_id: int, current_user):
+        time_log = self.repo.get_time_log(timelog_id)
+        if not time_log:
+            raise NotFoundError("Time log not found")
+        if time_log.task.owner_id != current_user.id:
+            raise PermissionError(
+                "You don't have permission to mark this time log as successful"
+            )
+
+        duration = self._Duration(time_log.start_time, time_log.end_time)
+
+        # Call repository transactional method
+        updated_time_log = self.repo.mark_timelog_success(
+            timelog_id, duration, self.task_repo
+        )
+
+        return updated_time_log

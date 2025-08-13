@@ -46,3 +46,13 @@ def delete_timelog(
     current_user=Depends(get_current_user),
 ):
     return usecase.delete_timelog(time_log_id, current_user)
+
+
+@router.get("/timelog/done/{time_log_id}", response_model=Time)
+@handle_service_result
+def timelog_done(
+    time_log_id: int,
+    usecase=Depends(get_dayplan_usecase),
+    current_user=Depends(get_current_user),
+):
+    return usecase.mark_timelog_success(time_log_id, current_user)
