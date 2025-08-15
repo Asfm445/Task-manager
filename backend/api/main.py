@@ -1,8 +1,8 @@
 from api.routers import dayplan_router, task, user_router
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from infrastructure.db.session import engine
-from infrastructure.models import model
+# from infrastructure.db.session import engine
+# from infrastructure.models import model
 
 app = FastAPI()
 
@@ -22,7 +22,7 @@ app.add_middleware(
 
 
 
-model.Base.metadata.create_all(bind=engine)
+# model.Base.metadata.create_all(bind=engine)
 
 
 app.include_router(task.router, prefix="/tasks", tags=["Tasks"])

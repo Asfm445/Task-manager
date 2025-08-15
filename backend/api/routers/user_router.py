@@ -8,21 +8,21 @@ router = APIRouter()
 
 @router.post("/token")
 @handle_service_result
-def login(user_info: LoginInput, usecase=Depends(get_user_usecase)):
+async def login(user_info: LoginInput, usecase=Depends(get_user_usecase)):
 
-    tokens = usecase.Login(user_info)
+    tokens = await usecase.Login(user_info)
     return tokens
 
 
 @router.post("/register")
 @handle_service_result
-def register_user(user: UserCreate, usecase=Depends(get_user_usecase)):
-    return usecase.Register(user)
+async def register_user(user: UserCreate, usecase=Depends(get_user_usecase)):
+    return await usecase.Register(user)
 
 
 @router.post(
     "/refresh",
 )
 @handle_service_result
-def refresh_token(token: RefreshToken, usecase=Depends(get_user_usecase)):
-    return usecase.RefreshToken(token.refresh_token)
+async def refresh_token(token: RefreshToken, usecase=Depends(get_user_usecase)):
+    return await usecase.RefreshToken(token.refresh_token)

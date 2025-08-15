@@ -15,20 +15,20 @@ export const TaskProvider = ({ children }) => {
     }
   };
 
-  const createTask = async (formData) => {
+  const createTask = async (payload) => {
     try {
-      const payload = {
-        description: formData.description,
-        end_date: new Date(formData.end_date).toISOString(),
-        status: formData.status,
-        estimated_hr: Number(formData.estimated_hr), // ensure string
-        is_repititive: formData.is_repititive,
-        main_task_id: formData.main_task_id || null,
-        };
-        if(formData.startDate){
-            payload.start_date = new Date(formData.startDate).toISOString();
-        }
-        console.log(payload)
+      // const payload = {
+      //   description: formData.description,
+      //   end_date: new Date(formData.end_date).toISOString(),
+      //   status: formData.status,
+      //   estimated_hr: Number(formData.estimated_hr), // ensure string
+      //   is_repititive: formData.is_repititive,
+      //   main_task_id: formData.main_task_id || null,
+      //   };
+      //   if(formData.startDate){
+      //       payload.start_date = new Date(formData.startDate).toISOString();
+      //   }
+      //   console.log(payload)
       const res = await api.post("/tasks", payload);
       setTasks((prev) => [...prev, res.data]);
     } catch (err) {

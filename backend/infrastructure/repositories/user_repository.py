@@ -1,25 +1,37 @@
-from domain.Models import User, UserRegister
-from infrastructure.models.dto import (
-    create_domain_user_from_model,
-    create_user_model_from_register,
-)
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
+from domain.Models import UserRegister
 from infrastructure.models.model import User as UserModel
-from sqlalchemy.orm import Session
+from domain.repositories.user_repo import IUserRepository
 
-
-class UserRepository:
-    def __init__(self, db: Session):
+class UserRepository(IUserRepository):
+    def __init__(self, db: AsyncSession):
         self.db = db
 
-    def FindByEmail(self, email: str):
-        dbuser = self.db.query(UserModel).filter(UserModel.email == email).first()
-        if not dbuser:
-            return None
-        return create_domain_user_from_model(dbuser)
+    async def FindByEmail(self, email: str):
+        try:
+            result = await self.db.execute(
+                select(UserModel)
+                .where(UserModel.email == email)
+                .limit(1)
+            )
+            return result.scalars().first()
+        except Exception as e:
+            print(f"FindByEmail error: {e}")
+            raise
 
-    def Create(self, user: UserRegister, hashed_password: str):
-        db_user = create_user_model_from_register(user, hashed_password)
-        self.db.add(db_user)
-        self.db.commit()
-        self.db.refresh(db_user)
-        return {"message": "User created successfully"}
+    async def Create(self, user: UserRegister, hashed_password: str):
+        try:
+            db_user = UserModel(
+                username=user.username,
+                email=user.email,
+                hashed_password=hashed_password
+            )
+            self.db.add(db_user)
+            await self.db.commit()
+            await self.db.refresh(db_user)
+            return {"message":"user registered successfully"}
+        except Exception as e:
+            await self.db.rollback()
+            print(f"Create user error: {e}")
+            raise

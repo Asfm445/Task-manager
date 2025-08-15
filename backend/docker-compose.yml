@@ -1,18 +1,20 @@
-version: "3.9"
+# version: '3.8'
 
 services:
   fastapi_app:
     build: .
     container_name: fastapi_app
     ports:
-      - "8001:8001"
+      - "8001:8001"  # Host:Container port mapping
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     environment:
-      - DATABASE_URL=postgresql://dbuser:1234@db:5432/Task_manager_db
+      DATABASE_URL: postgresql+asyncpg://dbuser:1234@db:5432/task_manager_db
+      DATABASE_URL_SYNC: postgresql+psycopg2://dbuser:1234@db:5432/task_manager_db
     volumes:
-      - .:/app
-    command: uvicorn api.main:app --host 0.0.0.0 --port 8001 --reload
+      - .:/app  # Mount for development (remove in production)
+    # No need for command if it matches Dockerfile CMD
 
   db:
     image: postgres:17
@@ -20,11 +22,16 @@ services:
     environment:
       POSTGRES_USER: dbuser
       POSTGRES_PASSWORD: 1234
-      POSTGRES_DB: Task_manager_db
+      POSTGRES_DB: task_manager_db
     ports:
-      - "5432:5432"
+      - "5432:5432"  # Expose PostgreSQL for external tools (optional)
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - pgdata:/var/lib/postgresql/data  # Persistent storage
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dbuser -d task_manager_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
 volumes:
   pgdata:

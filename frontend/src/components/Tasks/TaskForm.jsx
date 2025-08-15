@@ -1,17 +1,22 @@
 import React, { useState } from "react";
 import { useTasks } from "../../TaskContext";
+import TimePicker from "../TimePicker";
 
 export default function TaskForm({ initialData = {}, onCancel, onSubmit }) {
   const { tasks } = useTasks();
-  let initialForm = initialData || {
+
+  let initialForm = {
     description: "",
     start_date: "",
+    start_time: "",
     status: "pending",
     end_date: "",
+    end_time: "",
     estimated_hr: 0,
     is_repititive: false,
     main_task_id: "",
   };
+
   const [form, setForm] = useState(initialForm);
 
   const handleChange = (e) => {
@@ -22,9 +27,45 @@ export default function TaskForm({ initialData = {}, onCancel, onSubmit }) {
     }));
   };
 
+  const handleStartTimeChange = (date) => {
+    if (date) {
+      const formatted = date.toTimeString().slice(0, 5); // "HH:mm"
+      setForm((prev) => ({ ...prev, start_time: formatted }));
+    }
+  };
+
+  const handleEndTimeChange = (date) => {
+    if (date) {
+      const formatted = date.toTimeString().slice(0, 5); // "HH:mm"
+      setForm((prev) => ({ ...prev, end_time: formatted }));
+    }
+  };
+
   const handleSubmit = (e) => {
     e.preventDefault();
-    onSubmit(form);
+
+    // Combine date + time into full ISO datetime
+    const startISO =
+      form.start_date && form.start_time
+        ? new Date(`${form.start_date}T${form.start_time}`).toISOString()
+        : null;
+
+    const endISO =
+      form.end_date && form.end_time
+        ? new Date(`${form.end_date}T${form.end_time}`).toISOString()
+        : null;
+
+    const payload = {
+        description: form.description,
+        end_date: new Date(endISO).toISOString(),
+        start_date: new Date(startISO).toISOString(),
+        status: form.status,
+        estimated_hr: Number(form.estimated_hr), // ensure string
+        is_repititive: form.is_repititive,
+        main_task_id: form.main_task_id || null,
+        };
+    console.log(payload, form)
+    onSubmit(payload);
   };
 
   return (
@@ -32,6 +73,7 @@ export default function TaskForm({ initialData = {}, onCancel, onSubmit }) {
       onSubmit={handleSubmit}
       className="flex flex-col gap-5 bg-blue-50 p-6 rounded-lg border border-blue-200 shadow"
     >
+      {/* Description */}
       <div>
         <label htmlFor="description" className="block font-semibold mb-1 text-gray-700">
           Description <span className="text-red-500">*</span>
@@ -48,6 +90,7 @@ export default function TaskForm({ initialData = {}, onCancel, onSubmit }) {
         />
       </div>
 
+      {/* Status */}
       <div>
         <label htmlFor="status" className="block font-semibold mb-1 text-gray-700">
           Status <span className="text-red-500">*</span>
@@ -65,34 +108,53 @@ export default function TaskForm({ initialData = {}, onCancel, onSubmit }) {
         </select>
       </div>
 
-      <div>
-        <label htmlFor="start_date" className="block font-semibold mb-1 text-gray-700">
-          Start Date
-        </label>
-        <input
-          id="start_date"
-          type="date"
-          name="start_date"
-          value={form.start_date}
-          onChange={handleChange}
-          className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-400"
-        />
+      {/* Start Date + Time */}
+      <div className="flex gap-3">
+        <div className="flex-1">
+          <label htmlFor="start_date" className="block font-semibold mb-1 text-gray-700">
+            Start Date
+          </label>
+          <input
+            id="start_date"
+            type="date"
+            name="start_date"
+            value={form.start_date}
+            onChange={handleChange}
+            className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-400"
+          />
+        </div>
+        <div className="flex-1">
+          <label htmlFor="start_time" className="block font-semibold mb-1 text-gray-700">
+            Start Time
+          </label>
+          <TimePicker value={form.start_time} onChange={handleStartTimeChange} />
+        </div>
       </div>
 
-      <div>
-        <label htmlFor="end_date" className="block font-semibold mb-1 text-gray-700">
-          End Date
-        </label>
-        <input
-          id="end_date"
-          type="date"
-          name="end_date"
-          value={form.end_date}
-          onChange={handleChange}
-          className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-400"
-        />
+      {/* End Date + Time */}
+      <div className="flex gap-3">
+        <div className="flex-1">
+          <label htmlFor="end_date" className="block font-semibold mb-1 text-gray-700">
+            End Date
+          </label>
+          <input
+            id="end_date"
+            type="date"
+            name="end_date"
+            value={form.end_date}
+            onChange={handleChange}
+            className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-400"
+          />
+        </div>
+        <div className="flex-1">
+          <label htmlFor="end_time" className="block font-semibold mb-1 text-gray-700">
+            End Time
+          </label>
+          <TimePicker value={form.end_time} onChange={handleEndTimeChange} />
+        </div>
       </div>
 
+      {/* Estimated Hours */}
       <div>
         <label htmlFor="estimated_hr" className="block font-semibold mb-1 text-gray-700">
           Estimated Hours
@@ -109,6 +171,7 @@ export default function TaskForm({ initialData = {}, onCancel, onSubmit }) {
         />
       </div>
 
+      {/* Repetitive */}
       <div className="flex items-center gap-3">
         <input
           id="is_repititive"
@@ -123,6 +186,7 @@ export default function TaskForm({ initialData = {}, onCancel, onSubmit }) {
         </label>
       </div>
 
+      {/* Main Task */}
       <div>
         <label htmlFor="main_task_id" className="block font-semibold mb-1 text-gray-700">
           Main Task (Optional)
@@ -143,6 +207,7 @@ export default function TaskForm({ initialData = {}, onCancel, onSubmit }) {
         </select>
       </div>
 
+      {/* Buttons */}
       <div className="flex gap-3 mt-4">
         <button
           type="submit"
