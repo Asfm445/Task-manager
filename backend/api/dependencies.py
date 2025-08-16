@@ -12,6 +12,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from usecases.dayplan_usecase import DayPlanUseCase
 from usecases.task_usecase import TaskService
 from usecases.user_usecase import UserUsecase
+from infrastructure.uow import SqlAlchemyUnitOfWork
+from domain.repositories.iuow import IUnitOfWork
 
 SECRET_KEY = "allah_is_sufficient_for_us"
 ALGORITHM = "HS256"
@@ -26,9 +28,12 @@ async def get_db() -> AsyncSession:
         yield db
 
 
-async def get_task_service(db: AsyncSession = Depends(get_db)) -> TaskService:
-    repo = TaskRepository(db)
-    return TaskService(repo)
+async def get_uow(db: AsyncSession = Depends(get_db)) -> IUnitOfWork:
+    # Create a session factory that reuses the existing session
+    return SqlAlchemyUnitOfWork(lambda: db)
+
+async def get_task_service(uow: IUnitOfWork = Depends(get_uow)) -> TaskService:
+    return TaskService(uow)
 
 
 async def get_user_usecase(db: AsyncSession = Depends(get_db)) -> UserUsecase:

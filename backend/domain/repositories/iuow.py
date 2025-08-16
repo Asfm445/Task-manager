@@ -1,0 +1,16 @@
+# domain/repositories/uow.py
+from typing import Protocol
+from domain.repositories.task_repo import AbstractTaskRepository
+
+# domain/repositories/uow.py
+from typing import Protocol, runtime_checkable
+
+@runtime_checkable
+class IUnitOfWork(Protocol):
+    @property
+    def tasks(self) -> 'AbstractTaskRepository': ...
+    
+    async def __aenter__(self) -> 'IUnitOfWork': ...
+    async def __aexit__(self, exc_type, exc_val, exc_tb): ...
+    async def commit(self): ...
+    async def rollback(self): ...

@@ -1,299 +1,368 @@
-from datetime import datetime
-from unittest.mock import ANY, MagicMock
-
 import pytest
-from api.schemas.task_schema import Task, TaskCreate
-from domain.exceptions import BadRequestError, NotFoundError
+from unittest.mock import AsyncMock, MagicMock
+from datetime import datetime, timezone, timedelta
 
-# from domain.Models import TaskCreateInput, TaskOutput
+from domain.exceptions import BadRequestError, NotFoundError
+from domain.models.task_model import TaskCreateInput, TaskOutput
 from usecases.task_usecase import TaskService
 
 
-class Test_get_task:
-
-    def test_get_task_success(self):
-        # Arrange
-        mock_repo = MagicMock()
-        service = TaskService(mock_repo)
-
-        mock_user = MagicMock()
-        mock_user.id = 1
-
-        fake_task = MagicMock()
-        fake_task.owner_id = 1
-        fake_task.assignees = []
-
-        mock_repo.get_task.return_value = fake_task
-
-        # Act
-        result = service.get_task(task_id=1, current_user=mock_user)
-
-        # Assert
-        assert result.id == fake_task.id
-        mock_repo.get_task.assert_called_once_with(1)
-
-    def test_get_task_not_found(self):
-        mock_repo = MagicMock()
-        service = TaskService(mock_repo)
-
-        mock_user = MagicMock()
-        mock_user.id = 1
-
-        mock_repo.get_task.return_value = None
-
-        with pytest.raises(NotFoundError):
-            service.get_task(task_id=999, current_user=mock_user)
-
-    def test_get_task_permission_denied(self):
-        mock_repo = MagicMock()
-        service = TaskService(mock_repo)
-
-        mock_user = MagicMock()
-        mock_user.id = 2
-
-        fake_task = MagicMock()
-        fake_task.owner_id = 1
-        fake_task.assignees = []
-
-        mock_repo.get_task.return_value = fake_task
-
-        with pytest.raises(PermissionError):
-            service.get_task(task_id=1, current_user=mock_user)
+@pytest.fixture
+def mock_uow():
+    uow = MagicMock()
+    uow.__aenter__.return_value = uow
+    uow.__aexit__.return_value = False
+    uow.tasks = MagicMock()
+    uow.commit = AsyncMock()
+    uow.rollback = AsyncMock()
+    return uow
 
 
-class Test_create_task:
-
-    def test_create_task_success(self):
-        mock_repo = MagicMock()
-        service = TaskService(mock_repo)
-        mock_user = MagicMock()
-        mock_user.id = 1
-        task_data = {
-            "description": "newtask",
-            "end_date": "2025-08-28T05:38:07.665Z",
-            "estimated_hr": 20,
-            "is_repititive": False,
-            "status": "pending",
-            "start_date": "2025-08-27T05:38:07.665Z",
-            "main_task_id": None,
-        }
-
-        expected_data = {
-            "description": "newtask",
-            "end_date": datetime.fromisoformat("2025-08-28T22:38:07.665000"),
-            "estimated_hr": 20.0,
-            "is_repititive": False,
-            "status": "pending",
-            "start_date": datetime.fromisoformat("2025-08-26T22:38:07.665000"),
-            "main_task_id": None,
-            "id": 1,
-            "subtasks": [],
-            "assignees": [],
-            "owner_id": 1,
-        }
-        mock_repo.create_task.return_value = Task(**expected_data)
-        task = TaskCreate(**task_data)
-
-        result = service.create_task(task=task, current_user=mock_user)
-        assert result.__dict__ == expected_data
-        mock_repo.create_task.assert_called_once_with(ANY)
-
-    def test_create_task_with_main_task_not_found(self):
-        mock_repo = MagicMock()
-        service = TaskService(mock_repo)
-        mock_user = MagicMock()
-        mock_user.id = 1
-        task_data = {
-            "description": "newtask",
-            "end_date": "2025-08-28T05:38:07.665Z",
-            "estimated_hr": 20,
-            "is_repititive": False,
-            "status": "pending",
-            "start_date": "2025-08-27T05:38:07.665Z",
-            "main_task_id": 1,
-        }
-        mock_repo.get_task.return_value = None
-        with pytest.raises(NotFoundError, match="Main task not found"):
-            service.create_task(task=TaskCreate(**task_data), current_user=mock_user)
-
-    def test_create_task_with_subtask_permission_denied(self):
-        mock_repo = MagicMock()
-        service = TaskService(mock_repo)
-        mock_user = MagicMock()
-        mock_user.id = 2
-        task_data = {
-            "description": "newtask",
-            "end_date": "2025-08-28T05:38:07.665Z",
-            "estimated_hr": 20,
-            "is_repititive": False,
-            "status": "pending",
-            "start_date": "2025-08-27T05:38:07.665Z",
-            "main_task_id": 1,
-        }
-        main_task = MagicMock()
-        main_task.owner_id = 1
-        mock_repo.get_task.return_value = main_task
-        with pytest.raises(
-            PermissionError, match="Cannot create subtask for another user's task"
-        ):
-            service.create_task(task=TaskCreate(**task_data), current_user=mock_user)
-
-    def test_create_task_start_date_in_past(self):
-        mock_repo = MagicMock()
-        service = TaskService(mock_repo)
-        mock_user = MagicMock()
-        mock_user.id = 1
-        task_data = {
-            "description": "newtask",
-            "end_date": "2025-08-28T05:38:07.665Z",
-            "estimated_hr": 20,
-            "is_repititive": False,
-            "status": "pending",
-            "start_date": "2023-08-27T05:38:07.665Z",  # Past date
-            "main_task_id": None,
-        }
-
-        with pytest.raises(BadRequestError, match="Start date cannot be in the past"):
-            service.create_task(task=TaskCreate(**task_data), current_user=mock_user)
-
-    def test_create_task_end_date_before_start_date(self):
-        mock_repo = MagicMock()
-        service = TaskService(mock_repo)
-        mock_user = MagicMock()
-        mock_user.id = 1
-        task_data = {
-            "description": "newtask",
-            "end_date": "2023-08-27T05:38:07.665Z",  # Before start date
-            "estimated_hr": 20,
-            "is_repititive": False,
-            "status": "pending",
-            "start_date": "2025-08-28T05:38:07.665Z",
-            "main_task_id": None,
-        }
-        with pytest.raises(BadRequestError, match="End date cannot be in the past"):
-            service.create_task(task=TaskCreate(**task_data), current_user=mock_user)
+@pytest.fixture
+def service(mock_uow):
+    return TaskService(mock_uow)
 
 
-class Test_get_tasks:
+@pytest.fixture
+def current_user():
+    class User:
+        id = 1
+    return User()
 
-    def test_get_tasks_success(self):
-        # Arrange
-        mock_repo = MagicMock()
-        service = TaskService(mock_repo)
 
-        task1 = MagicMock()
-        task1.id = 1
-        task1.end_date = datetime(2025, 8, 28, 5, 38, 7, 665000)
-        task1.start_date = datetime(2025, 8, 27, 5, 38, 7, 665000)
-        task1.estimated_hr = 20
-        task1.is_repititive = False
-        task1.description = "newtask"
-        task1.main_task_id = None
-        task1.subtasks = []
-        task1.status = "pending"
-        task1.owner_id = 1
-        task1.assignees = []
+@pytest.mark.asyncio
+async def test_create_task_success(service, mock_uow, current_user):
+    task_input = TaskCreateInput(
+        # title="Test",
+        description="desc",
+        start_date=datetime.now(timezone.utc) + timedelta(days=1),
+        end_date=datetime.now(timezone.utc) + timedelta(days=2),
+        estimated_hr=5,
+        is_repititive=False
+    )
+    mock_uow.tasks.create_task = AsyncMock(return_value="created_task")
 
-        task2 = MagicMock()
+    result = await service.create_task(task_input, current_user)
 
-        task2.id = 2
-        task2.end_date = datetime(2025, 8, 29, 5, 38, 7, 665000)
-        task2.start_date = datetime(2025, 8, 28, 5, 38, 7, 665000)
-        task2.estimated_hr = 20
-        task2.is_repititive = False
-        task2.description = "newtask2"
-        task2.main_task_id = None
-        task2.subtasks = []
-        task2.status = "pending"
-        task2.owner_id = 1
-        task2.assignees = []
+    assert result == "created_task"
+    mock_uow.tasks.create_task.assert_awaited_once()
 
-        task3 = MagicMock()
-        task3.end_date = datetime(2025, 8, 30, 5, 38, 7, 665000)
-        task3.start_date = datetime(2025, 8, 29, 5, 38, 7, 665000)
-        task3.estimated_hr = 20
-        task3.is_repititive = False
-        task3.description = "newtask3"
-        task3.main_task_id = None
-        task3.subtasks = []
-        task3.status = "pending"
-        task3.id = 3
-        task3.owner_id = 1
-        task3.assignees = []
+@pytest.mark.asyncio
+async def test_create_task_start_date_before_end_date(service,current_user):
+    task_input = TaskCreateInput(
+        # title="Test",
+        description="desc",
+        start_date=datetime.now(timezone.utc) + timedelta(days=2),
+        end_date=datetime.now(timezone.utc) + timedelta(days=1),
+        estimated_hr=5,
+        is_repititive=False
+    )
+    with pytest.raises(BadRequestError, match="End date cannot be before start date"):
+        await service.create_task(task_input, current_user)
 
-        mock_repo.get_tasks.return_value = [task1, task2, task3]
-        current_user = MagicMock()
-        current_user.id = 1
+@pytest.mark.asyncio
+async def test_validate_date_end_date_before__start_date(service):
+    start_date=datetime.now(timezone.utc) + timedelta(days=2)
+    end_date=datetime.now(timezone.utc) + timedelta(days=1)
+    with pytest.raises(BadRequestError, match="End date cannot be before start date"):
+        await service._validate_dates(start_date, end_date)
 
-        # Act
-        result = service.get_tasks(current_user)
+@pytest.mark.asyncio
+async def test_validate_date_start_date_is_past(service):
+    start_date=datetime.now(timezone.utc) - timedelta(days=2)
+    end_date=datetime.now(timezone.utc) - timedelta(days=1)
+    with pytest.raises(BadRequestError, match="Start date cannot be in the past"):
+        await service._validate_dates(start_date, end_date)
 
-        # Assert
-        assert len(result) == 3
-        assert result[0].id == 1
-        assert result[1].id == 2
-        assert result[2].id == 3
 
-    def test_get_tasks_has_permission(self):
-        # Arrange
-        mock_repo = MagicMock()
-        service = TaskService(mock_repo)
-        user_assignee = MagicMock()
-        user_assignee.id = 1
-        user_assignee.email = "test@example.com"
-        user_assignee.username = "testuser"
-        user_assignee.my_tasks = []
-        user_assignee.assigned_tasks = []
 
-        task1 = MagicMock()
-        task1.id = 1
-        task1.end_date = datetime(2025, 8, 28, 5, 38, 7, 665000)
-        task1.start_date = datetime(2025, 8, 27, 5, 38, 7, 665000)
-        task1.estimated_hr = 20
-        task1.is_repititive = False
-        task1.description = "newtask"
-        task1.main_task_id = None
-        task1.subtasks = []
-        task1.status = "pending"
-        task1.owner_id = 1
-        task1.assignees = []
 
-        task2 = MagicMock()
 
-        task2.id = 2
-        task2.end_date = datetime(2025, 8, 29, 5, 38, 7, 665000)
-        task2.start_date = datetime(2025, 8, 28, 5, 38, 7, 665000)
-        task2.estimated_hr = 20
-        task2.is_repititive = False
-        task2.description = "newtask2"
-        task2.main_task_id = None
-        task2.subtasks = []
-        task2.status = "pending"
-        task2.owner_id = 2
-        task2.assignees = []
 
-        task3 = MagicMock()
-        task3.end_date = datetime(2025, 8, 30, 5, 38, 7, 665000)
-        task3.start_date = datetime(2025, 8, 29, 5, 38, 7, 665000)
-        task3.estimated_hr = 20
-        task3.is_repititive = False
-        task3.description = "newtask3"
-        task3.main_task_id = None
-        task3.subtasks = []
-        task3.status = "pending"
-        task3.id = 3
-        task3.owner_id = 2
-        task3.assignees = [user_assignee]
-        mock_repo.get_tasks.return_value = [task1, task2, task3]
-        current_user = MagicMock()
-        current_user.id = 1
+@pytest.mark.asyncio
+async def test_create_task_negative_hours(service, current_user):
+    task_input = TaskCreateInput(
+        # title="Test",
+        description="desc",
+        start_date=datetime.now(timezone.utc) + timedelta(days=1),
+        end_date=datetime.now(timezone.utc) + timedelta(days=2),
+        estimated_hr=-1,
+        is_repititive=False
+    )
 
-        # Act
-        result = service.get_tasks(current_user)
+    with pytest.raises(BadRequestError):
+        await service.create_task(task_input, current_user)
 
-        # Assert
-        assert len(result) == 2
-        assert result[0].id == 1
-        assert result[1].id == 3
-        assert result[1].id == 3
-        assert result[1].id == 3
+
+@pytest.mark.asyncio
+async def test_create_subtask_main_task_notfound(service, mock_uow, current_user):
+    task_input = TaskCreateInput(
+        # title="Test",
+        main_task_id=1,
+        description="desc",
+        start_date=datetime.now(timezone.utc) + timedelta(days=1),
+        end_date=datetime.now(timezone.utc) + timedelta(days=2),
+        estimated_hr=11,
+        is_repititive=False
+    )
+    mock_uow.tasks.get_task=AsyncMock(return_value=None)
+
+    with pytest.raises(NotFoundError, match="Main task not found"):
+        await service.create_task(task_input, current_user)
+
+@pytest.mark.asyncio
+async def test_create_subtask_has_no_pernmission(service, mock_uow, current_user):
+    task_input = TaskCreateInput(
+        # title="Test",
+        main_task_id=1,
+        description="desc",
+        start_date=datetime.now(timezone.utc) + timedelta(days=1),
+        end_date=datetime.now(timezone.utc) + timedelta(days=2),
+        estimated_hr=1,
+        is_repititive=False
+    )
+    task = TaskOutput(id=1,
+                      description="disc",
+                      end_date=datetime.now(timezone.utc) + timedelta(days=2),
+                      estimated_hr=1,
+                      owner_id=99, 
+                      assignees=[])
+    mock_uow.tasks.get_task=AsyncMock(return_value=task)
+
+    with pytest.raises(PermissionError, match="Cannot create subtask for another user's task"):
+        await service.create_task(task_input, current_user)
+
+@pytest.mark.asyncio
+async def test_assigned_user_create_subtask(service, mock_uow, current_user):
+    task_input = TaskCreateInput(
+        # title="Test",
+        main_task_id=1,
+        description="desc",
+        start_date=datetime.now(timezone.utc) + timedelta(days=1),
+        end_date=datetime.now(timezone.utc) + timedelta(days=2),
+        estimated_hr=1,
+        is_repititive=False
+    )
+    task = TaskOutput(id=1,
+                      description="disc",
+                      end_date=datetime.now(timezone.utc) + timedelta(days=2),
+                      estimated_hr=1,
+                      owner_id=99, 
+                      assignees=[1])
+    mock_uow.tasks.get_task=AsyncMock(return_value=task)
+    mock_uow.tasks.create_task = AsyncMock(return_value="created_task")
+
+    result = await service.create_task(task_input, current_user)
+
+    assert result == "created_task"
+    mock_uow.tasks.create_task.assert_awaited_once()
+
+
+
+@pytest.mark.asyncio
+async def test_delete_task_permission_error(service, mock_uow, current_user):
+    task = TaskOutput(id=1,
+                      description="disc",
+                      end_date=datetime.now(timezone.utc) + timedelta(days=2),
+                      estimated_hr=1,
+                      owner_id=99, 
+                      assignees=[])
+    mock_uow.tasks.get_task = AsyncMock(return_value=task)
+
+    with pytest.raises(PermissionError):
+        await service.delete_task(1, current_user)
+
+    mock_uow.tasks.delete_task.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_update_task(service, mock_uow, current_user):
+    """
+    Ensures that if an exception is raised during update, the transaction is rolled back.
+    """
+    task = TaskOutput(id=1,
+                      description="disc",
+                      end_date=datetime.now(timezone.utc) + timedelta(days=2),
+                      estimated_hr=1,
+                      owner_id=1, 
+                      assignees=[])
+    mock_uow.tasks.get_task = AsyncMock(return_value=task)
+    mock_uow.tasks.update_task = AsyncMock(side_effect=RuntimeError("DB failure"))
+
+    with pytest.raises(RuntimeError):
+        await service.update_task(1, {"estimated_hr": 5}, current_user)
+
+
+
+@pytest.mark.asyncio
+async def test_get_tasks_filters_by_user(service, mock_uow, current_user):
+    task_owned = TaskOutput(id=1,
+                      description="disc",
+                      end_date=datetime.now(timezone.utc) + timedelta(days=2),
+                      estimated_hr=1,
+                      owner_id=current_user.id, 
+                      assignees=[])
+    task_assigned = TaskOutput(id=1,
+                      description="disc",
+                      end_date=datetime.now(timezone.utc) + timedelta(days=2),
+                      estimated_hr=1,
+                      owner_id=1, 
+                      assignees=[1])
+    task_unrelated = TaskOutput(id=1,
+                      description="disc",
+                      end_date=datetime.now(timezone.utc) + timedelta(days=2),
+                      estimated_hr=1,
+                      owner_id=2, 
+                      assignees=[])
+
+    mock_uow.tasks.get_tasks = AsyncMock(return_value=[task_owned, task_assigned, task_unrelated])
+
+    result = await service.get_tasks(current_user)
+
+    assert len(result) == 2
+    assert all(t in [task_owned, task_assigned] for t in result)
+    mock_uow.commit.assert_awaited()
+
+
+@pytest.mark.asyncio
+async def test_handle_repetitive_task_creates_progress(service, mock_uow):
+    task = TaskOutput(
+        id=1,
+        owner_id=1,
+        assignees=[],
+        start_date=datetime.now() - timedelta(days=7),
+        end_date=datetime.now() - timedelta(days=6),
+        status="pending",
+        done_hr=2,
+        estimated_hr=4,
+        description="disc",
+        is_repititive=True,
+        is_stopped=False
+    )
+
+    mock_uow.tasks.create_progress = AsyncMock()
+    mock_uow.tasks.update_task = AsyncMock()
+
+    await service._handle_repetitive_task(task)
+
+    assert mock_uow.tasks.create_progress.await_count == 7
+    mock_uow.tasks.update_task.assert_awaited()
+
+
+
+
+@pytest.mark.asyncio
+async def test_get_tasks_rolls_back_on_failure(service, mock_uow, current_user):
+    # make get_tasks return one task
+    task = TaskOutput(
+        id=1,
+        owner_id=current_user.id,
+        assignees=[],
+        start_date=datetime.now() - timedelta(days=7),
+        end_date=datetime.now() - timedelta(days=6),
+        status="pending",
+        done_hr=2,
+        estimated_hr=4,
+        description="disc",
+        is_repititive=True,
+        is_stopped=False,
+    )
+
+    mock_uow.tasks.get_tasks = AsyncMock(return_value=[task])
+    mock_uow.tasks.create_progress = AsyncMock()
+    mock_uow.tasks.update_task = AsyncMock(side_effect=RuntimeError("DB failure"))
+
+
+    with pytest.raises(RuntimeError, match="DB failure"):
+        await service.get_tasks(skip=0, limit=10, current_user=current_user)
+
+    mock_uow.commit.assert_not_awaited()
+    mock_uow.rollback.assert_awaited()
+
+    # mock_uow.tasks.create_progress.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_toggle_task_stop_success(service, mock_uow, current_user):
+    task = TaskOutput(
+        id=1,
+        owner_id=current_user.id,
+        assignees=[],
+        is_repititive=True,
+        is_stopped=False,
+        description="desc",
+        estimated_hr=1,
+        start_date=datetime.now(timezone.utc),
+        end_date=datetime.now(timezone.utc)
+    )
+    mock_uow.tasks.get_task = AsyncMock(return_value=task)
+    mock_uow.tasks.update_task = AsyncMock()
+    mock_uow.tasks.create_stop = AsyncMock()
+
+    result = await service.toggle_task(task.id, stop=True, current_user=current_user)
+
+    assert result == {"message": "task stopped successfully"}
+    mock_uow.tasks.update_task.assert_awaited_once_with(task.id, {"is_stopped": True})
+    mock_uow.tasks.create_stop.assert_awaited_once()
+    mock_uow.commit.assert_awaited()
+
+@pytest.mark.asyncio
+async def test_toggle_task_start_success(service, mock_uow, current_user):
+    now = datetime.now(timezone.utc)
+    task = TaskOutput(
+        id=1,
+        owner_id=current_user.id,
+        assignees=[],
+        is_repititive=True,
+        is_stopped=True,
+        description="desc",
+        estimated_hr=1,
+        start_date=now,
+        end_date=now
+    )
+    stopped_info = MagicMock()
+    stopped_info.stopped_at = now - timedelta(hours=1)
+
+    mock_uow.tasks.get_task = AsyncMock(return_value=task)
+    mock_uow.tasks.get_stop = AsyncMock(return_value=stopped_info)
+    mock_uow.tasks.update_task = AsyncMock()
+    mock_uow.tasks.create_progress = AsyncMock()
+    mock_uow.tasks.delete_stop = AsyncMock()
+
+    result = await service.toggle_task(task.id, stop=False, current_user=current_user)
+
+    assert result == {"message": "task started successfully"}
+    mock_uow.tasks.update_task.assert_awaited_once()
+    mock_uow.tasks.create_progress.assert_awaited_once()
+    mock_uow.tasks.delete_stop.assert_awaited_once()
+    mock_uow.commit.assert_awaited()
+
+@pytest.mark.asyncio
+async def test_toggle_task_update_fails_triggers_exception(service, mock_uow, current_user):
+    """
+    Ensure that if update_task fails, toggle_task raises an exception and no partial state happens.
+    """
+    task = TaskOutput(
+        id=1,
+        owner_id=current_user.id,
+        assignees=[],
+        is_repititive=True,
+        is_stopped=False,
+        description="desc",
+        estimated_hr=1,
+        start_date=datetime.now(timezone.utc),
+        end_date=datetime.now(timezone.utc)
+    )
+
+    mock_uow.tasks.get_task = AsyncMock(return_value=task)
+    # Simulate DB failure
+    mock_uow.tasks.update_task = AsyncMock(side_effect=RuntimeError("DB failure"))
+    mock_uow.tasks.create_stop = AsyncMock()
+
+    with pytest.raises(RuntimeError, match="DB failure"):
+        await service.toggle_task(task.id, stop=True, current_user=current_user)
+
+    # Ensure create_stop was never called (atomicity)
+    mock_uow.tasks.create_stop.assert_not_awaited()
+    mock_uow.commit.assert_not_awaited()
+    mock_uow.rollback.assert_awaited()

@@ -9,50 +9,50 @@ router = APIRouter()
 
 @router.post("/", response_model=DayPlan)
 @handle_service_result
-def get_dayplan(
+async def get_dayplan(
     dayplan: DayPlanCreate,
     usecase=Depends(get_dayplan_usecase),
     current_user=Depends(get_current_user),
 ):
-    return usecase.get_dayplan(dayplan.date, current_user)
+    return await usecase.get_dayplan(dayplan.date, current_user)
 
 
 @router.delete("/", response_model=DayPlan)
 @handle_service_result
-def delete_dayplan(
+async def delete_dayplan(
     dayplan: DayPlanCreate,
     usecase=Depends(get_dayplan_usecase),
     current_user=Depends(get_current_user),
 ):
-    return usecase.delete_dayplan(dayplan.date, current_user)
+    return await usecase.delete_dayplan(dayplan.date, current_user)
 
 
 @router.post("/timelog", response_model=Time)
 @handle_service_result
-def create_timelog(
+async def create_timelog(
     time_log: TimeCreate,
     usecase=Depends(get_dayplan_usecase),
     current_user=Depends(get_current_user),
 ):
     time_log = time_create_to_domain(time_log)
-    return usecase.create_time_log(time_log, current_user)
+    return await usecase.create_time_log(time_log, current_user)
 
 
 @router.delete("/timelog/{time_log_id}", response_model=Time)
 @handle_service_result
-def delete_timelog(
+async def delete_timelog(
     time_log_id: int,
     usecase=Depends(get_dayplan_usecase),
     current_user=Depends(get_current_user),
 ):
-    return usecase.delete_timelog(time_log_id, current_user)
+    return await usecase.delete_timelog(time_log_id, current_user)
 
 
 @router.get("/timelog/done/{time_log_id}", response_model=Time)
 @handle_service_result
-def timelog_done(
+async def timelog_done(
     time_log_id: int,
     usecase=Depends(get_dayplan_usecase),
     current_user=Depends(get_current_user),
 ):
-    return usecase.mark_timelog_success(time_log_id, current_user)
+    return await usecase.mark_timelog_success(time_log_id, current_user)

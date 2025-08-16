@@ -58,13 +58,11 @@ class UserUsecase:
         if not payload:
             raise BadRequestError(err)
         
-        print("++++++++++++++++++++++++its ok until this ++++++++++++")
 
         result = await self.tokenRepo.FindByID(payload["id"])
         if not result:
             raise BadRequestError("Invalid token")
         
-        print("++++++++++++++++++++++++its ok until this ++++++++++++")
 
         dbtoken, user = result
         if not self.jwt_service.verify_token(token, dbtoken.token):
