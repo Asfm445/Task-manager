@@ -38,7 +38,5 @@ class AbstractDayPlanRepository(ABC):
         pass
 
     @abstractmethod
-    def mark_timelog_success(
-        self, timelog_id: int, duration: float, task_repo: AbstractTaskRepository
-    ):
+    async def update_time_log(self, time_log_id: int, data: dict)-> Optional[TimeLog]:
         pass

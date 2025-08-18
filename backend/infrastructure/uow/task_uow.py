@@ -1,8 +1,7 @@
 # infrastructure/uow.py
 from domain.repositories.iuow import IUnitOfWork
 from infrastructure.repositories.task_repository import TaskRepository
-# from domain.repositories.task_repo import AbstractTaskRepository
-# from sqlalchemy.ext.asyncio import AsyncSession
+
 
 # infrastructure/uow.py
 class SqlAlchemyUnitOfWork(IUnitOfWork):

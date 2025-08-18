@@ -30,6 +30,7 @@ class TaskOutput:
     description: str
     end_date: datetime
     estimated_hr: float
+    owner_id: int
     is_repititive: bool = False
     is_stopped: bool = False
     done_hr: float = 0.0
@@ -38,7 +39,17 @@ class TaskOutput:
     main_task_id: Optional[int] = None
     subtasks: List[int] = field(default_factory=list)
     assignees: List[int] = field(default_factory=list)
-    owner_id: Optional[int] = None
+    
+
+@dataclass
+class TimeTask:
+    description: str
+    owner_id: int
+    estimated_hr: float
+    done_hr: float=0.0
+    status: TaskStatus = TaskStatus.in_progress
+
+
 
 
 @dataclass

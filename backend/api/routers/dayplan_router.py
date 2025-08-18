@@ -38,7 +38,7 @@ async def create_timelog(
     return await usecase.create_time_log(time_log, current_user)
 
 
-@router.delete("/timelog/{time_log_id}", response_model=Time)
+@router.delete("/timelog/{time_log_id}")
 @handle_service_result
 async def delete_timelog(
     time_log_id: int,

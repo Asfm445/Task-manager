@@ -1,9 +1,6 @@
 from datetime import date
-
-from domain.exceptions import BadRequestError, NotFoundError
-from domain.models.dayplan_model import TimeLog as dTimeLog
+from domain.models.dayplan_model import TimeLog as dTimeLog, TimeLogCreate
 from domain.repositories.dayplan_repo import AbstractDayPlanRepository
-from domain.repositories.task_repo import AbstractTaskRepository
 from infrastructure.dto.dayplan_dto import (
     domain_to_orm_timelog,
     orm_to_domain_dayplan,
@@ -14,27 +11,42 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 
+from sqlalchemy.orm import selectinload
+
+
 class DayPlanRepository(AbstractDayPlanRepository):
     def __init__(self, db: AsyncSession):
         self.db = db
 
+    # ------------------------------
+    # DayPlan Methods
+    # ------------------------------
     async def create_dayplan(self, date: date, current_user) -> DayPlan:
         dayplan = DayPlan(date=date, user_id=current_user.id)
         self.db.add(dayplan)
-        await self.db.commit()
-        await self.db.refresh(dayplan)
-        return orm_to_domain_dayplan(dayplan)
-
-    async def get_dayplan(self, date: date, current_user) -> DayPlan:
-        result = await self.db.execute(
-            select(DayPlan).filter(
-                DayPlan.date == date, DayPlan.user_id == current_user.id
-            )
+        # No commit here
+        await self.db.flush()  # Ensure id is generated
+        return DayPlan(
+            id=dayplan.id,
+            date=dayplan.date,
+            user_id=dayplan.user_id,
+            times=[],
         )
-        dayplan = result.scalars().first()
-        if not dayplan:
+
+    
+    async def get_dayplan(self, date: date, current_user) -> DayPlan | None:
+        result = await self.db.execute(
+            select(DayPlan)
+            .options(
+                selectinload(DayPlan.times)            # ✅ load all timelogs
+                .selectinload(TimeLog.task)          # ✅ and each timelog’s task
+            )
+            .filter(DayPlan.date == date, DayPlan.user_id == current_user.id)
+        )
+        orm_dayplan = result.scalars().first()
+        if not orm_dayplan:
             return None
-        return orm_to_domain_dayplan(dayplan)
+        return orm_to_domain_dayplan(orm_dayplan)
 
     async def get_dayplanById(self, id: int) -> DayPlan:
         result = await self.db.execute(select(DayPlan).filter(DayPlan.id == id))
@@ -43,29 +55,36 @@ class DayPlanRepository(AbstractDayPlanRepository):
             return None
         return orm_to_domain_dayplan(dayplan)
 
-    async def delete_dayplan(self, date: date, current_user) -> DayPlan:
-        dayplan = await self.get_dayplan(date, current_user)
-        self.db.delete(dayplan)
-        await self.db.commit()
-        return orm_to_domain_dayplan(dayplan)
+    async def delete_dayplan(self, date: date, current_user) -> DayPlan | None:
+        result = await self.db.execute(
+            select(DayPlan).filter(
+                DayPlan.date == date, DayPlan.user_id == current_user.id
+            )
+        )
+        orm_dayplan = result.scalars().first()
+        if orm_dayplan:
+            await self.db.delete(orm_dayplan)   # delete ORM object
+            return orm_to_domain_dayplan(orm_dayplan)
+        return None
 
+
+    # ------------------------------
+    # TimeLog Methods
+    # ------------------------------
     async def deleteTimeLog(self, id):
         result = await self.db.execute(select(TimeLog).filter(TimeLog.id == id))
         time_log = result.scalars().first()
         if not time_log:
             return None
-        deleted_object=orm_to_domain_timelog(time_log)
         await self.db.delete(time_log)
+        # await self.db.flush()
+        # No commit
+        return orm_to_domain_timelog(time_log)
 
-        await self.db.commit()
-        
-        return deleted_object
-
-    async def create_time_log(self, time_log: dTimeLog):
+    async def create_time_log(self, time_log: TimeLogCreate):
         db_time_log = domain_to_orm_timelog(time_log)
         self.db.add(db_time_log)
-        await self.db.commit()
-        await self.db.refresh(db_time_log)
+        await self.db.flush()  # Ensure id is generated
         return orm_to_domain_timelog(db_time_log)
 
     async def get_time_log(self, id):
@@ -74,34 +93,23 @@ class DayPlanRepository(AbstractDayPlanRepository):
         if not time_log:
             return None
         return orm_to_domain_timelog(time_log)
+    async def update_time_log(self, time_log_id: int, data: dict) -> dTimeLog:
+        """
+        Partially update a TimeLog fields with provided kwargs.
+        Does NOT commit; flush is optional to get updated id.
+        """
+        result = await self.db.execute(select(TimeLog).filter(TimeLog.id == time_log_id))
+        time_log = result.scalars().first()
+        if not time_log:
+            return None  # or raise NotFoundError
 
-    async def mark_timelog_success(
-        self, timelog_id: int, duration: float, task_repo: AbstractTaskRepository
-    ):
-        async with self.db.begin_nested():
-            time_log = await self.get_time_log(timelog_id)
-            if not time_log:
-                raise NotFoundError("Time log not found")
+        # Update only provided fields
+        for key, value in data.items():
+            if hasattr(time_log, key):
+                setattr(time_log, key, value)
 
-            task = time_log.task
-            task.done_hr += duration
+        await self.db.flush()  # Optional: ensures changes are applied to the session
+        return orm_to_domain_timelog(time_log)
 
-            while task and task.done_hr >= task.estimated_hr:
-                data = {"done_hr": task.done_hr, "status": "completed"}
-                task = await task_repo.update_task(task.id, data)
-                if not task:
-                    raise BadRequestError("Task update failed")
 
-                if task.main_task_id:
-                    sb_task_es_hr = task.estimated_hr
-                    task = await task_repo.get_task(task.main_task_id)
-                    task.done_hr += sb_task_es_hr
-                else:
-                    break
-            else:
-                if task.status == "pending":
-                    await task_repo.update_task(
-                        task.id, {"done_hr": task.done_hr, "status": "in_progress"}
-                    )
-
-            return time_log
+    

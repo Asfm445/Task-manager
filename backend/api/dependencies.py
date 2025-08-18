@@ -12,8 +12,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from usecases.dayplan_usecase import DayPlanUseCase
 from usecases.task_usecase import TaskService
 from usecases.user_usecase import UserUsecase
-from infrastructure.uow import SqlAlchemyUnitOfWork
+from infrastructure.uow.task_uow import SqlAlchemyUnitOfWork
 from domain.repositories.iuow import IUnitOfWork
+from infrastructure.uow.dayyplan_uow import DayPlanUnitOfWork
+from domain.repositories.daypla_uow import IDayPlanUoW
 
 SECRET_KEY = "allah_is_sufficient_for_us"
 ALGORITHM = "HS256"
@@ -27,6 +29,14 @@ async def get_db() -> AsyncSession:
     async with AsyncSessionLocal() as db:
         yield db
 
+
+
+
+async def get_dayplan_uow(db: AsyncSession = Depends(get_db)) -> IDayPlanUoW:
+    return DayPlanUnitOfWork(lambda: db)
+
+async def get_dayplan_usecase(uow: IDayPlanUoW = Depends(get_dayplan_uow)) -> DayPlanUseCase:
+    return DayPlanUseCase(uow)
 
 async def get_uow(db: AsyncSession = Depends(get_db)) -> IUnitOfWork:
     # Create a session factory that reuses the existing session
@@ -46,10 +56,10 @@ async def get_user_usecase(db: AsyncSession = Depends(get_db)) -> UserUsecase:
     return UserUsecase(repo, password_service, jwt_service, tokenRepo)
 
 
-async def get_dayplan_usecase(db: AsyncSession = Depends(get_db)) -> DayPlanUseCase:
-    repo = DayPlanRepository(db)
-    task_repo = TaskRepository(db)
-    return DayPlanUseCase(repo, task_repo)
+# async def get_dayplan_usecase(db: AsyncSession = Depends(get_db)) -> DayPlanUseCase:
+#     repo = DayPlanRepository(db)
+#     task_repo = TaskRepository(db)
+#     return DayPlanUseCase(repo, task_repo)
 
 
 async def get_current_user(

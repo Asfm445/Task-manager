@@ -32,7 +32,7 @@ async def test_user_register_success():
 
     assert result["message"] == "User created successfully"
 
-
+@pytest.mark.filterwarnings("ignore:coroutine 'AsyncMockMixin._execute_mock_call' was never awaited")
 @pytest.mark.asyncio
 async def test_user_register_email_exist():
     # Use AsyncMock for all async components
@@ -51,7 +51,9 @@ async def test_user_register_email_exist():
 
     with pytest.raises(BadRequestError, match="Email already exist"):
         await service.Register(UserRegister(**user_data))
-
+    
+    # await mock_repo.FindByEmail._awaitable_mock_call()
+@pytest.mark.filterwarnings("ignore:coroutine 'AsyncMockMixin._execute_mock_call' was never awaited")
 @pytest.mark.asyncio
 async def test_login_success():
     mock_repo = AsyncMock()
@@ -94,6 +96,8 @@ async def test_login_user_not_found():
 
     with pytest.raises(NotFoundError, match="User not found"):
         await service.Login(UserLogin(**data))
+    
+    
 
 
 @pytest.mark.asyncio

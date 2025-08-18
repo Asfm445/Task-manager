@@ -1,6 +1,8 @@
 from domain.models.dayplan_model import DayPlan, TimeLog
 from infrastructure.models.model import DayPlan as dbDayplan
 from infrastructure.models.model import TimeLog as dbTimelog
+from infrastructure.models.model import Task 
+from domain.models.task_model import TimeTask
 
 
 def orm_to_domain_dayplan(orm_dayplan: dbDayplan) -> DayPlan:
@@ -12,6 +14,19 @@ def orm_to_domain_dayplan(orm_dayplan: dbDayplan) -> DayPlan:
     )
 
 
+
+
+def orm_task_to_domain_time(task: Task):
+    return TimeTask(
+        description=task.description,
+        owner_id=task.owner_id,
+        done_hr=task.done_hr,
+        estimated_hr=task.estimated_hr,
+        status=task.status
+    )
+
+
+
 def orm_to_domain_timelog(orm_timelog: dbTimelog) -> TimeLog:
     return TimeLog(
         id=orm_timelog.id,
@@ -19,7 +34,7 @@ def orm_to_domain_timelog(orm_timelog: dbTimelog) -> TimeLog:
         start_time=orm_timelog.start_time,
         end_time=orm_timelog.end_time,
         plan_id=orm_timelog.plan_id,
-        task=orm_timelog.task,
+        task=orm_task_to_domain_time(orm_timelog.task),
         done=orm_timelog.done,
     )
 
