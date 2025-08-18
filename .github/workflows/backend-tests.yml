@@ -24,7 +24,7 @@ jobs:
         run: docker compose up -d --build
 
       - name: Run tests inside fastapi_app
-        run: docker compose exec -T fastapi_app pytest -v
+        run: docker compose exec -T fastapi_app pytest /app/tests-v
 
       - name: Shutdown containers
         if: always()
