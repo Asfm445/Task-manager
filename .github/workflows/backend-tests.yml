@@ -1,4 +1,4 @@
-name: Backend Tests in Docker
+name: Backend Tests in Python
 
 on:
   push:
@@ -11,25 +11,25 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: backend  # 👈 ensures docker-compose runs in backend/
+        working-directory: backend  # ensure paths match your project
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.13
 
-      - name: Build fastapi_app container
-        run: docker compose build fastapi_app
+      - name: Install dependencies
+        run: |
+          python -m venv venv
+          source venv/bin/activate
+          pip install --upgrade pip
+          pip install -r requirements.txt
 
-      - name: Run tests inside fastapi_app
-        # Override entrypoint to skip migrations
-        run: docker compose run --rm \
-              -e SKIP_MIGRATIONS=1 \
-              --entrypoint "" \
-              fastapi_app pytest /app/tests -v
-
-      - name: Shutdown containers
-        if: always()
-        run: docker compose down -v
+      - name: Run tests
+        run: |
+          source venv/bin/activate
+          pytest tests -v
