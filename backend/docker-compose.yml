@@ -1,43 +1,46 @@
 services:
   fastapi_app:
-    build: .
+    build:
+      context: .
+      target: dev  # use dev stage for development
     container_name: fastapi_app
     ports:
-      - "8000:8000"  # host:container
+      - "8000:8000"
     depends_on:
-      - db
-    environment:
-      DATABASE_URL: postgresql+asyncpg://dbuser:1234@db:5432/task_manager_db
-      DATABASE_URL_SYNC: postgresql+psycopg2://dbuser:1234@db:5432/task_manager_db
+      db:
+        condition: service_healthy
+    env_file: .env
     volumes:
-      - .:/app
+      - .:/app  # mount code for dev
+    command: uvicorn api.main:app --host 0.0.0.0 --port 8000 --reload
 
   db:
     image: postgres:17
     container_name: postgres_db
-    environment:
-      POSTGRES_USER: dbuser
-      POSTGRES_PASSWORD: "1234"
-      POSTGRES_DB: task_manager_db
+    env_file: .env
     ports:
-      - "5433:5433"
+      - "${DB_PORT}:${DB_PORT}"   # map host:container using env
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U dbuser -d task_manager_db"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 5s
       timeout: 5s
       retries: 10
 
   backend_tests:
-    build: .
-    command: pytest -v tests/integration/
+    build:
+      context: .
+      target: test
     volumes:
       - .:/app
     depends_on:
-      - db
+      db:
+        condition: service_healthy
+    env_file: .env
     environment:
-      DATABASE_URL: postgresql+asyncpg://test:test@db:5432/test_db
+      DATABASE_URL: postgresql+asyncpg://${TEST_DB_USER}:${TEST_DB_PASSWORD}@db:5432/${TEST_DB_NAME}
+    command: pytest -v tests
 
 volumes:
   pgdata:

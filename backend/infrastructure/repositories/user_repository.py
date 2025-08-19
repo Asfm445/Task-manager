@@ -19,6 +19,17 @@ class UserRepository(IUserRepository):
         except Exception as e:
             print(f"FindByEmail error: {e}")
             raise
+    async def FindByUsername(self, username: str):
+        try:
+            result = await self.db.execute(
+                select(UserModel)
+                .where(UserModel.username== username)
+                .limit(1)
+            )
+            return result.scalars().first()
+        except Exception as e:
+            print(f"FindByEmail error: {e}")
+            raise
 
     async def Create(self, user: UserRegister, hashed_password: str):
         try:

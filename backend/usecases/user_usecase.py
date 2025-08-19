@@ -14,12 +14,13 @@ class UserUsecase:
     async def Register(self, user: UserRegister):
         if await self.repo.FindByEmail(user.email):
             raise BadRequestError("Email already exist")
+        if await self.repo.FindByUsername(user.username):
+            raise BadRequestError("Username already exist")
         hashed_password = self.pass_service.hash_password(user.password)
         return await self.repo.Create(user, hashed_password)
 
     async def Login(self, user_info: UserLogin):
         user = await self.repo.FindByEmail(user_info.email)
-        print(type(user), user)
         if not user:
             raise NotFoundError("User not found")
         if not self.pass_service.verify_password(

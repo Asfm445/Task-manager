@@ -25,6 +25,7 @@ async def test_user_register_success():
         "password": "1234",
     }
     mock_repo.FindByEmail.return_value = None
+    mock_repo.FindByUsername.return_value = None
     mock_repo.Create.return_value = {"message": "User created successfully"}
     mock_pass_service.hash_password.return_value = "hashed_pass"
 

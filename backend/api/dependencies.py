@@ -16,12 +16,16 @@ from infrastructure.uow.task_uow import SqlAlchemyUnitOfWork
 from domain.repositories.iuow import IUnitOfWork
 from infrastructure.uow.dayyplan_uow import DayPlanUnitOfWork
 from domain.repositories.daypla_uow import IDayPlanUoW
+# from api.config import settings
+import os
+from dotenv import load_dotenv
 
-SECRET_KEY = "allah_is_sufficient_for_us"
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
-REFRESH_TOKEN_EXPIRE_HOURS = 24 * 7  # 7 days
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+
+SECRET_KEY = os.getenv("SECRET_KEY")
+ALGORITHM = os.getenv("ALGORITHM")
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES"))
+REFRESH_TOKEN_EXPIRE_HOURS = int(os.getenv("REFRESH_TOKEN_EXPIRE_HOURS"))
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/token")
 
 
 # Async DB dependency
@@ -56,10 +60,6 @@ async def get_user_usecase(db: AsyncSession = Depends(get_db)) -> UserUsecase:
     return UserUsecase(repo, password_service, jwt_service, tokenRepo)
 
 
-# async def get_dayplan_usecase(db: AsyncSession = Depends(get_db)) -> DayPlanUseCase:
-#     repo = DayPlanRepository(db)
-#     task_repo = TaskRepository(db)
-#     return DayPlanUseCase(repo, task_repo)
 
 
 async def get_current_user(
