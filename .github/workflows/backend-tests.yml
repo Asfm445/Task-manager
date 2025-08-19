@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: backend  # 👈 ensures we run docker-compose in backend/
+        working-directory: backend  # 👈 ensures docker-compose runs in backend/
 
     steps:
       - name: Checkout repository
@@ -20,11 +20,15 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build and start containers
-        run: docker compose up -d --build
+      - name: Build fastapi_app container
+        run: docker compose build fastapi_app
 
       - name: Run tests inside fastapi_app
-        run: docker compose exec -T fastapi_app pytest /app/tests -v
+        # Override entrypoint to skip migrations
+        run: docker compose run --rm \
+              -e SKIP_MIGRATIONS=1 \
+              --entrypoint "" \
+              fastapi_app pytest /app/tests -v
 
       - name: Shutdown containers
         if: always()
