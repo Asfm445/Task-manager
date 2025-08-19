@@ -27,11 +27,7 @@ COPY . .
 # ===========================================
 FROM base AS dev
 
-# Entry point script
-COPY entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
-
-ENTRYPOINT ["/entrypoint.sh"]
+ENV ENVIRONMENT=development
 CMD ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
 
 # ===========================================
@@ -39,11 +35,7 @@ CMD ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload
 # ===========================================
 FROM base AS prod
 
-COPY entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
-
 ENV ENVIRONMENT=production
-ENTRYPOINT ["/entrypoint.sh"]
 CMD ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4"]
 
 # ===========================================
@@ -51,6 +43,5 @@ CMD ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000", "--worker
 # ===========================================
 FROM base AS test
 
-RUN pip install --no-cache-dir pytest
-ENTRYPOINT ["/entrypoint.sh"]
+RUN pip install --no-cache-dir pytest pytest-asyncio
 CMD ["pytest", "-v", "tests"]

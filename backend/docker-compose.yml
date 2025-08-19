@@ -1,17 +1,16 @@
+
+
 services:
   fastapi_app:
     build:
       context: .
-      target: dev  # use dev stage for development
+      target: dev  # dev stage for development
     container_name: fastapi_app
     ports:
       - "8000:8000"
-    depends_on:
-      db:
-        condition: service_healthy
     env_file: .env
     volumes:
-      - .:/app  # mount code for dev
+      - .:/app
     command: uvicorn api.main:app --host 0.0.0.0 --port 8000 --reload
 
   db:
@@ -19,7 +18,7 @@ services:
     container_name: postgres_db
     env_file: .env
     ports:
-      - "${DB_PORT}:${DB_PORT}"   # map host:container using env
+      - "${DB_PORT}:${DB_PORT}"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -34,9 +33,6 @@ services:
       target: test
     volumes:
       - .:/app
-    depends_on:
-      db:
-        condition: service_healthy
     env_file: .env
     environment:
       DATABASE_URL: postgresql+asyncpg://${TEST_DB_USER}:${TEST_DB_PASSWORD}@db:5432/${TEST_DB_NAME}
