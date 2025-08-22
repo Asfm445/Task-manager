@@ -1,4 +1,4 @@
-from datetime import datetime
+
 from typing import List, Optional
 
 from pydantic import BaseModel, ConfigDict, EmailStr
@@ -21,23 +21,6 @@ class User(UserBase):
     model_config = ConfigDict(from_attributes=True)
 
 
-class TaskProgressBase(BaseModel):
-    start_date: datetime
-    end_date: datetime
-    task_id: int
-    status: str
-    done_hr: float
-    estimated_hr: float
-
-
-class TaskProgressCreate(TaskProgressBase):
-    pass
-
-
-class TaskProgress(TaskProgressBase):
-    id: int
-
-    model_config = ConfigDict(from_attributes=True)
 
 
 class LoginInput(BaseModel):
@@ -47,3 +30,9 @@ class LoginInput(BaseModel):
 
 class RefreshToken(BaseModel):
     refresh_token: str
+
+class EmailRequest(BaseModel):
+    email: EmailStr
+
+class NewPasswordRequest(BaseModel):
+    new_password: str

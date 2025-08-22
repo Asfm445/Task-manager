@@ -41,6 +41,8 @@ class User:
     id: int
     username: str
     email: str
+    verified: bool
+    role: str
     hashed_password: str
     assigned_tasks: List[int] = field(default_factory=list)
     my_tasks: List[int] = field(default_factory=list)
@@ -59,3 +61,13 @@ class Token:
     user_id: int
     created_at: datetime
     expired_at: datetime
+
+
+@dataclass
+class TokenClaimUser:
+    id: int
+    email: str
+    username: str
+    role: str
+    
+

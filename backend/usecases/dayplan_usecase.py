@@ -1,8 +1,8 @@
 from datetime import date, datetime, time
 
 from domain.exceptions import BadRequestError, NotFoundError
+from domain.interfaces.daypla_uow import IDayPlanUoW
 from domain.models.dayplan_model import TimeLogCreate
-from domain.repositories.daypla_uow import IDayPlanUoW
 
 
 class DayPlanUseCase:

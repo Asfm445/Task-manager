@@ -2,9 +2,7 @@ from abc import ABC, abstractmethod
 from datetime import date
 from typing import Optional
 
-from domain.models.dayplan_model import DayPlan, TimeLog
-
-from .task_repo import AbstractTaskRepository
+from domain.models.dayplan_model import DayPlan, TimeLog, TimeLogCreate
 
 
 class AbstractDayPlanRepository(ABC):
@@ -30,7 +28,7 @@ class AbstractDayPlanRepository(ABC):
         pass
 
     @abstractmethod
-    def create_time_log(self, time_log: TimeLog) -> TimeLog:
+    def create_time_log(self, time_log: TimeLogCreate) -> TimeLog:
         pass
 
     @abstractmethod

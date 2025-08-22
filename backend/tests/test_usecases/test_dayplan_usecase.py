@@ -1,11 +1,12 @@
 # tests/unit/test_dayplan_usecase.py
-import pytest
+from datetime import date, datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock
-from datetime import date, datetime, time, timedelta
 
+import pytest
+from domain.exceptions import BadRequestError, NotFoundError
 from domain.models.dayplan_model import TimeLogCreate
-from domain.exceptions import NotFoundError, BadRequestError
 from usecases.dayplan_usecase import DayPlanUseCase
+
 
 class FakeUser:
     id = 1
@@ -292,5 +293,192 @@ async def test_mark_timelog_success_task_update_failed(mock_uow):
     
     mock_uow.commit.assert_not_awaited()
     mock_uow.rollback.assert_awaited()
+
+# --------------------- Additional DayPlan coverage ---------------------
+
+@pytest.mark.asyncio
+async def test_get_dayplan_returns_existing(mock_uow):
+    dayplan_repo = AsyncMock()
+    dayplan_repo.get_dayplan.return_value = "existing_dayplan"
+    mock_uow.dayplan_repo = dayplan_repo
+    usecase = DayPlanUseCase(mock_uow)
+
+    result = await usecase.get_dayplan(date.today(), FakeUser())
+
+    dayplan_repo.get_dayplan.assert_awaited_once()
+    assert result == "existing_dayplan"
+
+@pytest.mark.asyncio
+async def test_delete_dayplan_success(mock_uow):
+    dayplan_repo = AsyncMock()
+    dayplan_repo.get_dayplan.return_value = "existing_dayplan"
+    dayplan_repo.delete_dayplan.return_value = "deleted_dayplan"
+    mock_uow.dayplan_repo = dayplan_repo
+
+    usecase = DayPlanUseCase(mock_uow)
+    result = await usecase.delete_dayplan(date.today(), FakeUser())
+
+    dayplan_repo.delete_dayplan.assert_awaited_once()
+    assert result == "deleted_dayplan"
+
+@pytest.mark.asyncio
+async def test_create_time_log_start_after_end_raises(mock_uow):
+    now = datetime.now()
+    # Minimal repos to pass earlier checks if reached
+    mock_uow.dayplan_repo = AsyncMock()
+    mock_uow.task_repo = AsyncMock()
+    mock_uow.dayplan_repo.get_dayplanById.return_value = MagicMock(times=[])
+    mock_uow.task_repo.get_task.return_value = MagicMock(owner_id=1, status="in_progress", id=1)
+
+    usecase = DayPlanUseCase(mock_uow)
+
+    new_timelog = TimeLogCreate(
+        start_time=now + timedelta(hours=2),
+        end_time=now + timedelta(hours=1),  # start after end
+        task_id=1,
+        plan_id=1,
+    )
+
+    with pytest.raises(BadRequestError, match="Start time must be before end time"):
+        await usecase.create_time_log(new_timelog, FakeUser())
+
+@pytest.mark.asyncio
+async def test_create_time_log_dayplan_not_found(mock_uow):
+    now = datetime.now()
+    mock_uow.dayplan_repo = AsyncMock()
+    mock_uow.task_repo = AsyncMock()
+    mock_uow.dayplan_repo.get_dayplanById.return_value = None
+
+    usecase = DayPlanUseCase(mock_uow)
+
+    new_timelog = TimeLogCreate(
+        start_time=now,
+        end_time=now + timedelta(hours=1),
+        task_id=1,
+        plan_id=1,
+    )
+
+    with pytest.raises(NotFoundError, match="DayPlan not found"):
+        await usecase.create_time_log(new_timelog, FakeUser())
+
+@pytest.mark.asyncio
+async def test_create_time_log_task_not_found(mock_uow):
+    now = datetime.now()
+    mock_uow.dayplan_repo = AsyncMock()
+    mock_uow.task_repo = AsyncMock()
+    mock_uow.dayplan_repo.get_dayplanById.return_value = MagicMock(times=[])
+    mock_uow.task_repo.get_task.return_value = None
+
+    usecase = DayPlanUseCase(mock_uow)
+
+    new_timelog = TimeLogCreate(
+        start_time=now,
+        end_time=now + timedelta(hours=1),
+        task_id=99,
+        plan_id=1,
+    )
+
+    with pytest.raises(NotFoundError, match="Task not found"):
+        await usecase.create_time_log(new_timelog, FakeUser())
+
+@pytest.mark.asyncio
+async def test_create_time_log_permission_denied(mock_uow):
+    now = datetime.now()
+    mock_uow.dayplan_repo = AsyncMock()
+    mock_uow.task_repo = AsyncMock()
+    mock_uow.dayplan_repo.get_dayplanById.return_value = MagicMock(times=[])
+    # Task owned by someone else
+    mock_uow.task_repo.get_task.return_value = MagicMock(owner_id=2, status="pending", id=1)
+
+    usecase = DayPlanUseCase(mock_uow)
+
+    new_timelog = TimeLogCreate(
+        start_time=now,
+        end_time=now + timedelta(hours=1),
+        task_id=1,
+        plan_id=1,
+    )
+
+    with pytest.raises(PermissionError, match="You don't have permission to work on this task"):
+        await usecase.create_time_log(new_timelog, FakeUser())
+
+@pytest.mark.asyncio
+async def test_create_time_log_success_updates_task_if_pending(mock_uow):
+    now = datetime.now()
+    dayplan_repo = AsyncMock()
+    task_repo = AsyncMock()
+    dayplan_repo.get_dayplanById.return_value = MagicMock(times=[])
+
+    # Task is pending initially
+    task = MagicMock(id=1, owner_id=1, status="pending")
+    task_repo.get_task.return_value = task
+    task_repo.update_task = AsyncMock(return_value=MagicMock(id=1, owner_id=1, status="in_progress"))
+
+    created_timelog = MagicMock()
+    dayplan_repo.create_time_log.return_value = created_timelog
+
+    mock_uow.dayplan_repo = dayplan_repo
+    mock_uow.task_repo = task_repo
+
+    usecase = DayPlanUseCase(mock_uow)
+
+    new_timelog = TimeLogCreate(
+        start_time=now,
+        end_time=now + timedelta(hours=1),
+        task_id=1,
+        plan_id=1,
+    )
+
+    result = await usecase.create_time_log(new_timelog, FakeUser())
+
+    task_repo.update_task.assert_awaited_once_with(1, {"status": "in_progress"})
+    dayplan_repo.create_time_log.assert_awaited_once_with(new_timelog)
+    mock_uow.commit.assert_awaited()
+    assert result == created_timelog
+
+@pytest.mark.asyncio
+async def test_delete_timelog_not_found(mock_uow):
+    dayplan_repo = AsyncMock()
+    dayplan_repo.get_time_log.return_value = None
+    mock_uow.dayplan_repo = dayplan_repo
+
+    usecase = DayPlanUseCase(mock_uow)
+
+    with pytest.raises(NotFoundError, match="Time log not found"):
+        await usecase.delete_timelog(1, FakeUser())
+
+@pytest.mark.asyncio
+async def test_delete_timelog_permission_denied(mock_uow):
+    # timelog exists but owned by another user
+    other_task = MagicMock(owner_id=2)
+    timelog = MagicMock(task=other_task)
+
+    dayplan_repo = AsyncMock()
+    dayplan_repo.get_time_log.return_value = timelog
+    mock_uow.dayplan_repo = dayplan_repo
+
+    usecase = DayPlanUseCase(mock_uow)
+
+    with pytest.raises(PermissionError, match="You don't have permission to delete this time log"):
+        await usecase.delete_timelog(1, FakeUser())
+
+@pytest.mark.asyncio
+async def test_delete_timelog_success(mock_uow):
+    my_task = MagicMock(owner_id=1)
+    timelog = MagicMock(task=my_task)
+
+    dayplan_repo = AsyncMock()
+    dayplan_repo.get_time_log.return_value = timelog
+    dayplan_repo.deleteTimeLog.return_value = "deleted"
+    mock_uow.dayplan_repo = dayplan_repo
+
+    usecase = DayPlanUseCase(mock_uow)
+
+    result = await usecase.delete_timelog(1, FakeUser())
+
+    dayplan_repo.deleteTimeLog.assert_awaited_once_with(1)
+    assert result == "deleted"
+
+
 
 

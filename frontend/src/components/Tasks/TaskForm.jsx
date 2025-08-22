@@ -1,23 +1,44 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useTasks } from "../../TaskContext";
 import TimePicker from "../TimePicker";
 
-export default function TaskForm({ initialData = {}, onCancel, onSubmit }) {
+export default function TaskForm({ initialData = null, onCancel, onSubmit }) {
   const { tasks } = useTasks();
 
-  let initialForm = {
+  const emptyForm = {
     description: "",
     start_date: "",
     start_time: "",
     status: "pending",
     end_date: "",
     end_time: "",
-    estimated_hr: 0,
+    estimated_hr: "",
     is_repititive: false,
     main_task_id: "",
   };
 
-  const [form, setForm] = useState(initialForm);
+  const [form, setForm] = useState(emptyForm);
+
+  useEffect(() => {
+    if (initialData) {
+      // Pre-fill form for edit
+      const start = initialData.start_date ? new Date(initialData.start_date) : null;
+      const end = initialData.end_date ? new Date(initialData.end_date) : null;
+      setForm({
+        description: initialData.description || "",
+        status: initialData.status || "pending",
+        start_date: start ? start.toISOString().slice(0, 10) : "",
+        start_time: start ? start.toTimeString().slice(0, 5) : "",
+        end_date: end ? end.toISOString().slice(0, 10) : "",
+        end_time: end ? end.toTimeString().slice(0, 5) : "",
+        estimated_hr: initialData.estimated_hr ?? "",
+        is_repititive: !!initialData.is_repititive,
+        main_task_id: initialData.main_task_id || "",
+      });
+    } else {
+      setForm(emptyForm);
+    }
+  }, [initialData]);
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -44,27 +65,30 @@ export default function TaskForm({ initialData = {}, onCancel, onSubmit }) {
   const handleSubmit = (e) => {
     e.preventDefault();
 
-    // Combine date + time into full ISO datetime
-    const startISO =
-      form.start_date && form.start_time
-        ? new Date(`${form.start_date}T${form.start_time}`).toISOString()
-        : null;
-
-    const endISO =
-      form.end_date && form.end_time
-        ? new Date(`${form.end_date}T${form.end_time}`).toISOString()
-        : null;
-
     const payload = {
-        description: form.description,
-        end_date: new Date(endISO).toISOString(),
-        start_date: new Date(startISO).toISOString(),
-        status: form.status,
-        estimated_hr: Number(form.estimated_hr), // ensure string
-        is_repititive: form.is_repititive,
-        main_task_id: form.main_task_id || null,
-        };
-    console.log(payload, form)
+      description: form.description,
+      status: form.status,
+      is_repititive: !!form.is_repititive,
+    };
+
+    // Combine date + time into ISO when both present
+    if (form.start_date && form.start_time) {
+      payload.start_date = new Date(`${form.start_date}T${form.start_time}`).toISOString();
+    }
+    if (form.end_date && form.end_time) {
+      payload.end_date = new Date(`${form.end_date}T${form.end_time}`).toISOString();
+    }
+
+    // Only include estimated_hr if provided
+    if (form.estimated_hr !== "" && form.estimated_hr !== null && form.estimated_hr !== undefined) {
+      payload.estimated_hr = Number(form.estimated_hr);
+    }
+
+    // Main task id
+    if (form.main_task_id) {
+      payload.main_task_id = Number(form.main_task_id);
+    }
+
     onSubmit(payload);
   };
 

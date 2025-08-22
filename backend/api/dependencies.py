@@ -13,9 +13,13 @@ from usecases.dayplan_usecase import DayPlanUseCase
 from usecases.task_usecase import TaskService
 from usecases.user_usecase import UserUsecase
 from infrastructure.uow.task_uow import SqlAlchemyUnitOfWork
-from domain.repositories.iuow import IUnitOfWork
+from domain.interfaces.iuow import IUnitOfWork
 from infrastructure.uow.dayyplan_uow import DayPlanUnitOfWork
-from domain.repositories.daypla_uow import IDayPlanUoW
+from domain.interfaces.daypla_uow import IDayPlanUoW
+from infrastructure.services.email_service import EmailService
+from typing import List
+from domain.models.user_model import TokenClaimUser
+
 # from api.config import settings
 import os
 from dotenv import load_dotenv
@@ -26,6 +30,13 @@ ALGORITHM = os.getenv("ALGORITHM")
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES"))
 REFRESH_TOKEN_EXPIRE_HOURS = int(os.getenv("REFRESH_TOKEN_EXPIRE_HOURS"))
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/token")
+
+
+# SMTP_HOST=os.getenv("SMTP_HOST")
+# SMTP_PORT=os.getenv("SMTP_PORT")
+# SMTP_USERNAME=os.getenv("SMTP_USERNAME")
+# FROM_EMAIL=os.getenv("FROM_EMAIL")
+# FROM_NAME=os.getenv("FROM_NAME")
 
 
 # Async DB dependency
@@ -56,8 +67,10 @@ async def get_user_usecase(db: AsyncSession = Depends(get_db)) -> UserUsecase:
     jwt_service = JwtService(
         SECRET_KEY, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES, REFRESH_TOKEN_EXPIRE_HOURS
     )
+    email_service=EmailService()
+
     password_service = PasswordService()
-    return UserUsecase(repo, password_service, jwt_service, tokenRepo)
+    return UserUsecase(repo, password_service, jwt_service, tokenRepo, email_service)
 
 
 
@@ -65,23 +78,37 @@ async def get_user_usecase(db: AsyncSession = Depends(get_db)) -> UserUsecase:
 async def get_current_user(
     token: str = Depends(oauth2_scheme),
     user_usecase: UserUsecase = Depends(get_user_usecase),
-):
+) -> TokenClaimUser:
     try:
         payload, err = user_usecase.jwt_service.decode_token(token)
         if not payload:
             raise HTTPException(status_code=400, detail=err)
         username = payload.get("username")
         email = payload.get("email")
-        if username is None:
+        user_id = payload.get("user_id")
+        role=payload.get("role")
+        print("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
+        print(payload)
+        if username is None or email is None or user_id is None or role is None:
             raise HTTPException(
-                status_code=401, detail="Invalid authentication credentials"
+                status_code=401, detail="Invalid authentication credentialsss"
             )
     except JWTError:
         raise HTTPException(
             status_code=401, detail="Invalid authentication credentials"
         )
 
-    user = await user_usecase.getUserByEmail(email)  # must be async
-    if user is None:
-        raise HTTPException(status_code=401, detail="User not found")
-    return user
+    return TokenClaimUser(user_id, email, username, role)
+
+
+def role_required(permitted_roles: List[str]):
+    async def _role_checker(
+        current_user=Depends(get_current_user),
+    ):
+        if current_user.role not in permitted_roles:
+            raise HTTPException(
+                status_code=403,
+                detail="You do not have permission to perform this action",
+            )
+        return current_user
+    return _role_checker

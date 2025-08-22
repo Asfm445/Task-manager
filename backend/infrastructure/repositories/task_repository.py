@@ -13,9 +13,10 @@ from infrastructure.dto.task_dto import (
     orm_to_domain_task_progress,
 )
 from infrastructure.models.model import StopProgress, Task, TaskProgress, User
+from domain.interfaces.task_repo import AbstractTaskRepository
 
 
-class TaskRepository:
+class TaskRepository(AbstractTaskRepository):
     def __init__(self, db: AsyncSession):
         self.db = db
 

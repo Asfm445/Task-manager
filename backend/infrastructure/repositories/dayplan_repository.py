@@ -1,16 +1,16 @@
 from datetime import date
-from domain.models.dayplan_model import TimeLog as dTimeLog, TimeLogCreate
-from domain.repositories.dayplan_repo import AbstractDayPlanRepository
+
+from domain.interfaces.dayplan_repo import AbstractDayPlanRepository
+from domain.models.dayplan_model import TimeLog, TimeLogCreate
+from domain.models.dayplan_model import TimeLog as dTimeLog
 from infrastructure.dto.dayplan_dto import (
-    domain_to_orm_timelog,
+    domain_to_orm_timelog_create,
     orm_to_domain_dayplan,
     orm_to_domain_timelog,
 )
 from infrastructure.models.model import DayPlan, TimeLog
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-
-
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 
@@ -77,15 +77,27 @@ class DayPlanRepository(AbstractDayPlanRepository):
         if not time_log:
             return None
         await self.db.delete(time_log)
-        # await self.db.flush()
+        await self.db.flush()
         # No commit
         return orm_to_domain_timelog(time_log)
 
     async def create_time_log(self, time_log: TimeLogCreate):
-        db_time_log = domain_to_orm_timelog(time_log)
+        db_time_log = domain_to_orm_timelog_create(time_log)
         self.db.add(db_time_log)
         await self.db.flush()  # Ensure id is generated
-        return orm_to_domain_timelog(db_time_log)
+        
+        # Create a simple domain model without loading the task relationship
+        # to avoid the lazy loading issue
+        from domain.models.dayplan_model import TimeLog
+        return TimeLog(
+            id=db_time_log.id,
+            task_id=db_time_log.task_id,
+            start_time=db_time_log.start_time,
+            end_time=db_time_log.end_time,
+            plan_id=db_time_log.plan_id,
+            done=db_time_log.done,
+            task=None  # Don't load the task relationship to avoid lazy loading issues
+        )
 
     async def get_time_log(self, id):
         result = await self.db.execute(select(TimeLog).filter(TimeLog.id == id))

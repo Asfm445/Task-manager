@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 from api.dependencies import get_current_user, get_task_service
 from api.dto import task_dto
@@ -118,3 +118,22 @@ async def task_progress(
     current_user=Depends(get_current_user),
 ):
     return await service.get_progress(task_id, current_user, skip, limit)
+
+@router.get("/analytics/{task_id}")
+@handle_service_result
+async def task_analytics(
+    task_id: int,
+    service=Depends(get_task_service),
+    current_user=Depends(get_current_user),
+) -> Dict[str, Any]:
+    """
+    Get comprehensive analytics for a single task including:
+    - Completion metrics
+    - Time efficiency analysis
+    - Progress trends
+    - Performance indicators
+    - Status analysis
+    - Time metrics
+    - Summary and recommendations
+    """
+    return await service.get_task_analytics(task_id, current_user)

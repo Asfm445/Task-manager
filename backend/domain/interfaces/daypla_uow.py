@@ -23,8 +23,8 @@
 #         ...
 
 from typing import Protocol
-from domain.repositories.task_repo import AbstractTaskRepository
-from domain.repositories.dayplan_repo import AbstractDayPlanRepository
+from domain.interfaces.task_repo import AbstractTaskRepository
+from domain.interfaces.dayplan_repo import AbstractDayPlanRepository
 
 # domain/repositories/uow.py
 from typing import Protocol, runtime_checkable

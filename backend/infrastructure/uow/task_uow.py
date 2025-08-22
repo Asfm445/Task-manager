@@ -1,5 +1,5 @@
 # infrastructure/uow.py
-from domain.repositories.iuow import IUnitOfWork
+from domain.interfaces.iuow import IUnitOfWork
 from infrastructure.repositories.task_repository import TaskRepository
 
 

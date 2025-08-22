@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import Optional, Tuple
-from domain.Models import Token as DMToken
+from domain.models.user_model import Token as DMToken
 
 
 class ITokenRepository(ABC):
@@ -12,4 +12,8 @@ class ITokenRepository(ABC):
     @abstractmethod
     async def Create(self, token: dict) -> dict:
         """Create a new token in the database."""
+        pass
+    
+    @abstractmethod
+    async def DeleteByID(self, id: str):
         pass

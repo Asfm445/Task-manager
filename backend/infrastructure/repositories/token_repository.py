@@ -1,8 +1,8 @@
-from domain.Models import Token as DMToken
+from domain.models.user_model import Token as DMToken
 from infrastructure.models.model import Token
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from domain.repositories.token_repo import ITokenRepository
+from domain.interfaces.token_repo import ITokenRepository
 from sqlalchemy.orm import selectinload
 
 
@@ -37,3 +37,16 @@ class TokenRepository(ITokenRepository):
         await self.db.commit()
         await self.db.refresh(db_token)
         return {"token": "token created successfully"}
+    
+    async def DeleteByID(self, id: str):
+        """Delete a token by its ID"""
+        result = await self.db.execute(
+            select(Token).where(Token.id == id)
+        )
+        dbtoken = result.scalar_one_or_none()
+        if not dbtoken:
+            return {"error": f"Token with id {id} not found"}
+
+        await self.db.delete(dbtoken)
+        await self.db.commit()
+        return {"message": f"Token with id {id} deleted successfully"}

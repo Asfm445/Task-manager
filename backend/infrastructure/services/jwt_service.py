@@ -3,15 +3,12 @@ import uuid
 from datetime import datetime, timedelta, timezone
 
 from domain.exceptions import BadRequestError
-from domain.Models import Token
+from domain.models.user_model import Token
 from jose import ExpiredSignatureError, JWTError, jwt
-
-# SECRET_KEY = "allah_is_sufficient_for_us"
-# ALGORITHM = "HS256"
-# ACCESS_TOKEN_EXPIRE_MINUTES = 30
+from domain.interfaces.jwt_service import JwtServiceInterface
 
 
-class JwtService:
+class JwtService(JwtServiceInterface):
     def __init__(
         self,
         SECRET_KEY: str,
@@ -57,6 +54,19 @@ class JwtService:
             datetime.now(timezone.utc)
             + timedelta(hours=self.REFRESH_TOKEN_EXPIRE_HOURS),
         )
+    def create_verification_token(self, data: dict):
+        token_id = str(uuid.uuid4())
+        data = {**data, "id": token_id}
+        token = self.create_token(
+            data, expires_delta=timedelta(minutes=self.ACCESS_TOKEN_EXPIRE_MINUTES)
+        )
+        return {
+            "id": token_id,
+            "token": token,
+            "expired_at":datetime.now(timezone.utc),
+            "expired_at":datetime.now(timezone.utc)
+            + timedelta(hours=self.REFRESH_TOKEN_EXPIRE_HOURS),
+        }
 
     def hash_token(self, token: str):
         return hashlib.sha256(token.encode()).hexdigest()

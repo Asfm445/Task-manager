@@ -1,7 +1,8 @@
 from passlib.context import CryptContext
+from domain.interfaces.password_service import IPasswordService
 
 
-class PasswordService:
+class PasswordService(IPasswordService):
     def __init__(self):
         self.pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 

@@ -1,5 +1,6 @@
+import { CheckCircle, Clock, Edit2, Hourglass, Trash2 } from "lucide-react";
 import React from "react";
-import { Edit2, Trash2, Clock, Hourglass, CheckCircle } from "lucide-react";
+import { Link } from "react-router-dom";
 
 const statusStyles = {
   completed: "bg-green-100 text-green-700",
@@ -32,6 +33,9 @@ export default function TaskItem({ task, onEdit, onDelete }) {
         {task.main_task_id && <span>Main Task: #{task.main_task_id}</span>}
       </div>
       <div className="flex gap-2 mt-3">
+        <Link to={`/tasks/${task.id}`} className="bg-blue-600 text-white px-3 py-1 rounded flex items-center gap-1">
+          View
+        </Link>
         <button onClick={() => onEdit(task)} className="bg-yellow-400 text-white px-3 py-1 rounded flex items-center gap-1">
           <Edit2 size={14} /> Edit
         </button>

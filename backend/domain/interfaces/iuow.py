@@ -1,6 +1,6 @@
 # domain/repositories/uow.py
 from typing import Protocol
-from domain.repositories.task_repo import AbstractTaskRepository
+from domain.interfaces.task_repo import AbstractTaskRepository
 
 # domain/repositories/uow.py
 from typing import Protocol, runtime_checkable

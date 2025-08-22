@@ -1,8 +1,8 @@
-from domain.models.dayplan_model import DayPlan, TimeLog
-from infrastructure.models.model import DayPlan as dbDayplan
-from infrastructure.models.model import TimeLog as dbTimelog
-from infrastructure.models.model import Task 
+from domain.models.dayplan_model import DayPlan, TimeLog, TimeLogCreate
 from domain.models.task_model import TimeTask
+from infrastructure.models.model import DayPlan as dbDayplan
+from infrastructure.models.model import Task
+from infrastructure.models.model import TimeLog as dbTimelog
 
 
 def orm_to_domain_dayplan(orm_dayplan: dbDayplan) -> DayPlan:
@@ -55,5 +55,16 @@ def domain_to_orm_timelog(domain_timelog: TimeLog, orm_timelog=None):
     orm_timelog.start_time = domain_timelog.start_time
     orm_timelog.end_time = domain_timelog.end_time
     orm_timelog.plan_id = domain_timelog.plan_id
-    # orm_timelog.done = domain_timelog.done
+    orm_timelog.done = domain_timelog.done
+    return orm_timelog
+
+
+def domain_to_orm_timelog_create(domain_timelog: TimeLogCreate, orm_timelog=None):
+    if orm_timelog is None:
+        orm_timelog = dbTimelog()
+    orm_timelog.task_id = domain_timelog.task_id
+    orm_timelog.start_time = domain_timelog.start_time
+    orm_timelog.end_time = domain_timelog.end_time
+    orm_timelog.plan_id = domain_timelog.plan_id
+    # done field will use the default value from the ORM model (False)
     return orm_timelog

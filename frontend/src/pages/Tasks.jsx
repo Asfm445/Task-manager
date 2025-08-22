@@ -1,24 +1,45 @@
+import { Hourglass, PlusCircle } from "lucide-react";
 import React, { useState } from "react";
-import { PlusCircle, Hourglass } from "lucide-react";
 import { useTasks } from "../TaskContext";
 import TaskForm from "../components/Tasks/TaskForm";
 import TaskList from "../components/Tasks/TaskList";
 
 export default function Tasks() {
-  const { tasks, loading, createTask, updateTask, deleteTask } = useTasks();
+  const { tasks, loading, error, createTask, updateTask, deleteTask } = useTasks();
   const [showForm, setShowForm] = useState(false);
   const [editTask, setEditTask] = useState(null);
+  const [message, setMessage] = useState("");
 
-  if (loading) return <p>Loading...</p>;
+  if (loading) return (
+    <div className="flex justify-center items-center py-10 text-blue-600">
+      <Hourglass className="animate-pulse" /> Loading tasks...
+    </div>
+  );
 
   const handleCreate = async (data) => {
-    await createTask(data);
-    setShowForm(false);
+    try {
+      await createTask(data);
+      setMessage("Task created successfully");
+      setShowForm(false);
+      setTimeout(() => setMessage(""), 2000);
+    } catch (_) {}
   };
 
   const handleUpdate = async (data) => {
-    await updateTask(editTask.id, data);
-    setEditTask(null);
+    try {
+      await updateTask(editTask.id, data);
+      setMessage("Task updated successfully");
+      setEditTask(null);
+      setTimeout(() => setMessage(""), 2000);
+    } catch (_) {}
+  };
+
+  const handleDelete = async (id) => {
+    try {
+      await deleteTask(id);
+      setMessage("Task deleted");
+      setTimeout(() => setMessage(""), 1500);
+    } catch (_) {}
   };
 
   return (
@@ -32,10 +53,13 @@ export default function Tasks() {
         </button>
       </div>
 
+      {message && <div className="mb-3 text-green-700 bg-green-50 border border-green-200 rounded px-3 py-2">{message}</div>}
+      {error && <div className="mb-3 text-red-700 bg-red-50 border border-red-200 rounded px-3 py-2">{error?.response?.data?.detail || error.message}</div>}
+
       {showForm && <TaskForm onSubmit={handleCreate} onCancel={() => setShowForm(false)} />}
       {editTask && <TaskForm initialData={editTask} onSubmit={handleUpdate} onCancel={() => setEditTask(null)} />}
 
-      <TaskList tasks={tasks} onEdit={setEditTask} onDelete={deleteTask} />
+      <TaskList tasks={tasks} onEdit={setEditTask} onDelete={handleDelete} />
     </div>
   );
 }
