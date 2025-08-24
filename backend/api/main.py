@@ -1,20 +1,17 @@
 from api.routers import dayplan_router, task, user_router
+from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-# from infrastructure.db.session import engine
-# from infrastructure.models import model
+
+load_dotenv()
+import os
 
 app = FastAPI()
 
-# Allow your frontend's origin
-origins = [
-    "http://localhost:5173",  # React dev server
-    # Add more origins if needed
-]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,  # Allowed origins
+    allow_origins=[os.getenv("FRONTEND_URL")],  # Allowed origins
     allow_credentials=True,
     allow_methods=["*"],  # Allow all HTTP methods (GET, POST, etc.)
     allow_headers=["*"],  # Allow all headers
