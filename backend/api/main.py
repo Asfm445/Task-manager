@@ -1,10 +1,11 @@
+import os
+
 from api.routers import dayplan_router, task, user_router
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 load_dotenv()
-import os
 
 app = FastAPI()
 
