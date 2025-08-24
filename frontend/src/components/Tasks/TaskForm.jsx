@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useTasks } from "../../TaskContext";
 import TimePicker from "../TimePicker";
 
@@ -18,25 +18,32 @@ export default function TaskForm({ initialData = null, onCancel, onSubmit }) {
   };
 
   const [form, setForm] = useState(emptyForm);
+  const [errors, setErrors] = useState({});       // ✅ frontend errors
+  const [backendError, setBackendError] = useState(""); // ✅ backend errors
+
+  const getNowTime = () => new Date().toTimeString().slice(0, 5);
 
   useEffect(() => {
     if (initialData) {
-      // Pre-fill form for edit
       const start = initialData.start_date ? new Date(initialData.start_date) : null;
       const end = initialData.end_date ? new Date(initialData.end_date) : null;
       setForm({
         description: initialData.description || "",
         status: initialData.status || "pending",
         start_date: start ? start.toISOString().slice(0, 10) : "",
-        start_time: start ? start.toTimeString().slice(0, 5) : "",
+        start_time: start ? start.toTimeString().slice(0, 5) : getNowTime(),
         end_date: end ? end.toISOString().slice(0, 10) : "",
-        end_time: end ? end.toTimeString().slice(0, 5) : "",
+        end_time: end ? end.toTimeString().slice(0, 5) : getNowTime(),
         estimated_hr: initialData.estimated_hr ?? "",
         is_repititive: !!initialData.is_repititive,
         main_task_id: initialData.main_task_id || "",
       });
     } else {
-      setForm(emptyForm);
+      setForm({
+        ...emptyForm,
+        start_time: getNowTime(),
+        end_time: getNowTime(),
+      });
     }
   }, [initialData]);
 
@@ -50,81 +57,100 @@ export default function TaskForm({ initialData = null, onCancel, onSubmit }) {
 
   const handleStartTimeChange = (date) => {
     if (date) {
-      const formatted = date.toTimeString().slice(0, 5); // "HH:mm"
-      setForm((prev) => ({ ...prev, start_time: formatted }));
+      setForm((prev) => ({ ...prev, start_time: date.toTimeString().slice(0, 5) }));
     }
   };
 
   const handleEndTimeChange = (date) => {
     if (date) {
-      const formatted = date.toTimeString().slice(0, 5); // "HH:mm"
-      setForm((prev) => ({ ...prev, end_time: formatted }));
+      setForm((prev) => ({ ...prev, end_time: date.toTimeString().slice(0, 5) }));
     }
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    const newErrors = {};
+    setBackendError(""); // reset backend error before submit
 
+    // ✅ frontend validation
+    if (!form.description.trim()) newErrors.description = "Description is required.";
+    if (form.start_date && !form.start_time) newErrors.start_time = "Start time is required when start date is set.";
+    if (form.end_date && !form.end_time) newErrors.end_time = "End time is required when end date is set.";
+    if (form.estimated_hr < 0) newErrors.estimated_hr = "Estimated hours cannot be negative.";
+
+    setErrors(newErrors);
+    if (Object.keys(newErrors).length > 0) return;
+
+    // build payload
     const payload = {
       description: form.description,
       status: form.status,
       is_repititive: !!form.is_repititive,
     };
 
-    // Combine date + time into ISO when both present
     if (form.start_date && form.start_time) {
       payload.start_date = new Date(`${form.start_date}T${form.start_time}`).toISOString();
     }
     if (form.end_date && form.end_time) {
       payload.end_date = new Date(`${form.end_date}T${form.end_time}`).toISOString();
     }
-
-    // Only include estimated_hr if provided
     if (form.estimated_hr !== "" && form.estimated_hr !== null && form.estimated_hr !== undefined) {
       payload.estimated_hr = Number(form.estimated_hr);
     }
-
-    // Main task id
     if (form.main_task_id) {
       payload.main_task_id = Number(form.main_task_id);
     }
 
-    onSubmit(payload);
+    try {
+      await onSubmit(payload); // 🔄 expect onSubmit to throw error if backend fails
+    } catch (err) {
+      // ✅ assume backend sends { message: "..." }
+      const msg = err.response?.data?.message || err.message || "Something went wrong.";
+      setBackendError(msg);
+    }
   };
 
   return (
     <form
       onSubmit={handleSubmit}
-      className="flex flex-col gap-5 bg-blue-50 p-6 rounded-lg border border-blue-200 shadow"
+      className="flex flex-col gap-7 p-8 bg-white rounded-2xl shadow-2xl border border-gray-100 max-w-xl mx-auto"
     >
+      {/* 🔴 Backend Error Notification */}
+      {backendError && (
+        <div className="bg-red-100 text-red-700 px-4 py-2 rounded-lg text-center font-medium">
+          {backendError}
+        </div>
+      )}
+
       {/* Description */}
       <div>
-        <label htmlFor="description" className="block font-semibold mb-1 text-gray-700">
+        <label htmlFor="description" className="block font-semibold mb-2 text-gray-800">
           Description <span className="text-red-500">*</span>
         </label>
         <input
           id="description"
           type="text"
           name="description"
-          placeholder="Task description"
           value={form.description}
           onChange={handleChange}
           required
-          className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-400"
+          placeholder="Enter a brief task description"
+          className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
         />
+        {errors.description && <p className="text-sm text-red-500 mt-1">{errors.description}</p>}
       </div>
 
       {/* Status */}
       <div>
-        <label htmlFor="status" className="block font-semibold mb-1 text-gray-700">
-          Status <span className="text-red-500">*</span>
+        <label htmlFor="status" className="block font-semibold mb-2 text-gray-800">
+          Status
         </label>
         <select
           id="status"
           name="status"
           value={form.status}
           onChange={handleChange}
-          className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-400"
+          className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
         >
           <option value="pending">Pending</option>
           <option value="in_progress">In Progress</option>
@@ -132,95 +158,76 @@ export default function TaskForm({ initialData = null, onCancel, onSubmit }) {
         </select>
       </div>
 
-      {/* Start Date + Time */}
-      <div className="flex gap-3">
-        <div className="flex-1">
-          <label htmlFor="start_date" className="block font-semibold mb-1 text-gray-700">
-            Start Date
-          </label>
+      {/* Start & End Date/Time */}
+      <div className="grid grid-cols-2 gap-5">
+        <div>
+          <label htmlFor="start_date" className="block font-semibold mb-2 text-gray-800">Start Date</label>
           <input
-            id="start_date"
             type="date"
             name="start_date"
             value={form.start_date}
             onChange={handleChange}
-            className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-400"
+            className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
           />
         </div>
-        <div className="flex-1">
-          <label htmlFor="start_time" className="block font-semibold mb-1 text-gray-700">
-            Start Time
-          </label>
+        <div>
+          <label htmlFor="start_time" className="block font-semibold mb-2 text-gray-800">Start Time</label>
           <TimePicker value={form.start_time} onChange={handleStartTimeChange} />
+          {errors.start_time && <p className="text-sm text-red-500 mt-1">{errors.start_time}</p>}
         </div>
-      </div>
-
-      {/* End Date + Time */}
-      <div className="flex gap-3">
-        <div className="flex-1">
-          <label htmlFor="end_date" className="block font-semibold mb-1 text-gray-700">
-            End Date
-          </label>
+        <div>
+          <label htmlFor="end_date" className="block font-semibold mb-2 text-gray-800">End Date</label>
           <input
-            id="end_date"
             type="date"
             name="end_date"
             value={form.end_date}
             onChange={handleChange}
-            className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-400"
+            className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
           />
         </div>
-        <div className="flex-1">
-          <label htmlFor="end_time" className="block font-semibold mb-1 text-gray-700">
-            End Time
-          </label>
+        <div>
+          <label htmlFor="end_time" className="block font-semibold mb-2 text-gray-800">End Time</label>
           <TimePicker value={form.end_time} onChange={handleEndTimeChange} />
+          {errors.end_time && <p className="text-sm text-red-500 mt-1">{errors.end_time}</p>}
         </div>
       </div>
 
       {/* Estimated Hours */}
       <div>
-        <label htmlFor="estimated_hr" className="block font-semibold mb-1 text-gray-700">
-          Estimated Hours
-        </label>
+        <label htmlFor="estimated_hr" className="block font-semibold mb-2 text-gray-800">Estimated Hours</label>
         <input
-          id="estimated_hr"
           type="number"
           name="estimated_hr"
           value={form.estimated_hr}
           onChange={handleChange}
           min="0"
-          placeholder="0"
-          className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-400"
+          placeholder="e.g. 2"
+          className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
         />
+        {errors.estimated_hr && <p className="text-sm text-red-500 mt-1">{errors.estimated_hr}</p>}
       </div>
 
       {/* Repetitive */}
       <div className="flex items-center gap-3">
         <input
-          id="is_repititive"
           type="checkbox"
           name="is_repititive"
           checked={form.is_repititive}
           onChange={handleChange}
-          className="w-4 h-4"
+          className="w-5 h-5 accent-blue-500 transition"
         />
-        <label htmlFor="is_repititive" className="font-semibold text-gray-700">
-          Repetitive Task
-        </label>
+        <label className="font-semibold text-gray-800">Repetitive Task</label>
       </div>
 
       {/* Main Task */}
       <div>
-        <label htmlFor="main_task_id" className="block font-semibold mb-1 text-gray-700">
-          Main Task (Optional)
-        </label>
+        <label htmlFor="main_task_id" className="block font-semibold mb-2 text-gray-800">Main Task (Optional)</label>
         <select
           id="main_task_id"
           name="main_task_id"
           value={form.main_task_id}
           onChange={handleChange}
-          className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-400"
+          className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
         >
           <option value="">No Main Task</option>
           {tasks.map((t) => (
@@ -232,22 +239,24 @@ export default function TaskForm({ initialData = null, onCancel, onSubmit }) {
       </div>
 
       {/* Buttons */}
-      <div className="flex gap-3 mt-4">
-        <button
-          type="submit"
-          className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-semibold shadow transition"
-        >
-          Save
-        </button>
+      <div className="flex gap-4 mt-6 justify-end">
         {onCancel && (
           <button
             type="button"
             onClick={onCancel}
-            className="bg-gray-400 hover:bg-gray-500 text-white px-6 py-2 rounded-lg font-semibold shadow transition"
+            className="bg-gray-200 hover:bg-gray-300 text-gray-800 px-6 py-2 rounded-lg font-semibold shadow transition"
+            title="Cancel"
           >
             Cancel
           </button>
         )}
+        <button
+          type="submit"
+          className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-semibold shadow transition"
+          title="Save Task"
+        >
+          Save
+        </button>
       </div>
     </form>
   );

@@ -7,12 +7,14 @@ function Login() {
     password: "",
   });
   return (
-    <Form
-      type={"Login"}
-      inputs={inputs}
-      setInputs={setInputs}
-      apiUrl={"auth/token"}
-    ></Form>
+    <>
+      <Form
+        type={"Login"}
+        inputs={inputs}
+        setInputs={setInputs}
+        apiUrl={"auth/token"}
+      ></Form>
+    </>
   );
 }
 

@@ -113,20 +113,30 @@ class DayPlanUseCase:
 
                 while task and task.done_hr >= task.estimated_hr:
                     data = {"done_hr": task.done_hr, "status": "completed"}
-                    task = await self.uow.task_repo.update_task(task.id, data)
+                    await self.uow.task_repo.update_task(task.id, data)
                     if not task:
                         raise BadRequestError("Task update failed")
 
                     if task.main_task_id:
                         sb_task_es_hr = task.estimated_hr
                         task = await self.uow.task_repo.get_task(task.main_task_id)
+
+                        print("+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
+                        print(task.done_hr, task.estimated_hr, sb_task_es_hr)
                         task.done_hr += sb_task_es_hr
+                        print(task.done_hr, task.estimated_hr)
+
+                        
                     else:
                         break
                 else:
-                    if task and task.status == "pending":
+                    if task:
+                        data={"done_hr": task.done_hr}
+                        if task.status == "pending":
+                            data["status"]="in_progress"
+
                         await self.uow.task_repo.update_task(
-                            task.id, {"done_hr": task.done_hr, "status": "in_progress"}
+                            task.id,data
                         )
             except Exception:
                 await self.uow.rollback()

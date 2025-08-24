@@ -2,10 +2,9 @@ import hashlib
 import uuid
 from datetime import datetime, timedelta, timezone
 
-from domain.exceptions import BadRequestError
+from domain.interfaces.jwt_service import JwtServiceInterface
 from domain.models.user_model import Token
 from jose import ExpiredSignatureError, JWTError, jwt
-from domain.interfaces.jwt_service import JwtServiceInterface
 
 
 class JwtService(JwtServiceInterface):
@@ -63,7 +62,7 @@ class JwtService(JwtServiceInterface):
         return {
             "id": token_id,
             "token": token,
-            "expired_at":datetime.now(timezone.utc),
+            "created_at":datetime.now(timezone.utc),
             "expired_at":datetime.now(timezone.utc)
             + timedelta(hours=self.REFRESH_TOKEN_EXPIRE_HOURS),
         }

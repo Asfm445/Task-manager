@@ -1,28 +1,32 @@
 // src/App.jsx
-import React from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
-import Header from "./components/Header";
 import ProtectedRoute from "./components/ProtectedRoute";
+import ForgotPassword from "./pages/ForgotPassword";
 import Login from "./pages/Login";
 import PlanPage from "./pages/Plans";
 import Register from "./pages/Register";
+import ResetPassword from "./pages/ResetPassword";
 import TaskDetail from "./pages/TaskDetail";
 import Tasks from "./pages/Tasks";
-
+import VerifyEmail from "./pages/VerifyEmail";
+import { TaskProvider } from "./TaskContext";
 
 export default function App() {
   return (
     <>
-      <Header></Header>
       <Routes>
+        {/* <TaskProvider */}
         <Route path="/plans" element={<ProtectedRoute>
-          <PlanPage />
+          <TaskProvider><PlanPage /></TaskProvider>
         </ProtectedRoute>} />
-        <Route path="/tasks" element={<ProtectedRoute><Tasks /></ProtectedRoute> } />
+        <Route path="/tasks" element={<ProtectedRoute> <TaskProvider><Tasks /></TaskProvider></ProtectedRoute> } />
         <Route path="/tasks/:id" element={<ProtectedRoute><TaskDetail /></ProtectedRoute> } />
         <Route path="/" element={<Navigate to="/plans" />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/auth/reset-password" element={<ResetPassword />} />
+        <Route path="/auth/forgot-password" element={<ForgotPassword />} />
+        <Route path="/auth/verify-email" element={<VerifyEmail />} />
       </Routes>
 
     </>

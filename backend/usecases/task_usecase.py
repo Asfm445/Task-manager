@@ -30,11 +30,12 @@ class TaskService:
     
     async def _handle_repetitive_task(self, task: TaskOutput, max_cycle=100):
         
-        now = datetime.now()
+        now = datetime.now(timezone.utc)
         updated = False
         cycle = 0
         
         while task.is_repititive and task.end_date <= now and not task.is_stopped:
+
             if cycle >= max_cycle:
                 return
             cycle += 1
@@ -422,6 +423,7 @@ class TaskService:
         async with self.uow:
             try:
                 tasks = await self.uow.tasks.get_tasks(skip=skip, limit=limit)
+                tasks.sort(key=lambda x: x.end_date)
 
                 for task in tasks:
                     if task.owner_id == current_user.id or current_user.id in task.assignees:
@@ -540,4 +542,6 @@ class TaskService:
         if current_user.id != task.owner_id and current_user.id not in task.assignees:
             raise PermissionError("You don't have permission to view this task's progress")
 
-        return await self.uow.tasks.get_progress(task_id, skip, limit)
+        result=await self.uow.tasks.get_progress(task_id, skip, limit)
+        result.sort(key=lambda x: x.start_date, reverse=True)
+        return result

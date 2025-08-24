@@ -1,5 +1,5 @@
-import { Navigate } from "react-router-dom";
 import { useEffect, useState } from "react";
+import { Navigate } from "react-router-dom";
 import { checkIsAuthorized } from "../authorize";
 
 function ProtectedRoute({ children }) {

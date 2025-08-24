@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from "react";
-import api from "../api";
-import { useTasks } from "../TaskContext";
 import { format } from "date-fns";
-import DateNavigator from "../components/Plans/DateNavigator";
+import { useEffect, useState } from "react";
+import api from "../api";
+import Header from "../components/Header";
 import AddTimeLogForm from "../components/Plans/AddTimeLogForm";
+import DateNavigator from "../components/Plans/DateNavigator";
 import TimeLogItem from "../components/Plans/TimeLogItem";
+import { useTasks } from "../TaskContext";
 
 export default function PlanPage() {
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -79,8 +80,19 @@ export default function PlanPage() {
     }
   };
 
+  const handleDeleteLog = async (timelog_id) => {
+    try {
+      await api.delete(`plans/timelog/${timelog_id}`);
+      setLogs((prev) => prev.filter((log) => log.id !== timelog_id));
+    } catch (err) {
+      console.error("Failed to delete log:", err);
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-gray-100">
+    <>
+      <Header></Header>
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-gray-100">
       <main className="max-w-3xl mx-auto py-12 px-4">
         <DateNavigator selectedDate={selectedDate} setSelectedDate={setSelectedDate} />
 
@@ -115,6 +127,7 @@ export default function PlanPage() {
                   formatTime={formatTime}
                   getDuration={getDuration}
                   onMarkSuccess={handleMarkSuccess}
+                  onDeleteLog={handleDeleteLog}
                 />
               ))}
             </ul>
@@ -122,5 +135,6 @@ export default function PlanPage() {
         </div>
       </main>
     </div>
+    </>
   );
 }

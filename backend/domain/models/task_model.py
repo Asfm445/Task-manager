@@ -43,11 +43,17 @@ class TaskOutput:
 
 @dataclass
 class TimeTask:
+    id: int
     description: str
-    owner_id: int
+    end_date: datetime
     estimated_hr: float
-    done_hr: float=0.0
-    status: TaskStatus = TaskStatus.in_progress
+    owner_id: int
+    is_repititive: bool = False
+    is_stopped: bool = False
+    done_hr: float = 0.0
+    status: TaskStatus = TaskStatus.pending
+    start_date: Optional[datetime] = None
+    main_task_id: Optional[int] = None
 
 
 

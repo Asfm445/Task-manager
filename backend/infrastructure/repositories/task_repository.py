@@ -1,10 +1,7 @@
 from datetime import datetime, timezone
 from typing import List, Optional
 
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.future import select
-from sqlalchemy.orm import selectinload
-
+from domain.interfaces.task_repo import AbstractTaskRepository
 from domain.models.task_model import TaskCreateInput, TaskOutput, TaskProgressDomain
 from infrastructure.dto.task_dto import (
     domain_to_orm_task_create,
@@ -13,7 +10,9 @@ from infrastructure.dto.task_dto import (
     orm_to_domain_task_progress,
 )
 from infrastructure.models.model import StopProgress, Task, TaskProgress, User
-from domain.interfaces.task_repo import AbstractTaskRepository
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.future import select
+from sqlalchemy.orm import selectinload
 
 
 class TaskRepository(AbstractTaskRepository):

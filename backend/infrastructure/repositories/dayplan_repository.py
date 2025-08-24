@@ -1,8 +1,8 @@
 from datetime import date
 
 from domain.interfaces.dayplan_repo import AbstractDayPlanRepository
-from domain.models.dayplan_model import TimeLog, TimeLogCreate
 from domain.models.dayplan_model import TimeLog as dTimeLog
+from domain.models.dayplan_model import TimeLogCreate
 from infrastructure.dto.dayplan_dto import (
     domain_to_orm_timelog_create,
     orm_to_domain_dayplan,

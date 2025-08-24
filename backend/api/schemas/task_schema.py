@@ -16,7 +16,7 @@ class TaskBase(BaseModel):
     description: str
     end_date: datetime
     estimated_hr: float
-    is_repititive: bool = False
+    is_repititive: Optional[bool ]= False
     status: TaskStatus = TaskStatus.pending
     start_date: Optional[datetime] = None
     main_task_id: Optional[int] = None

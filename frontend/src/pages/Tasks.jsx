@@ -1,11 +1,12 @@
 import { Hourglass, PlusCircle } from "lucide-react";
-import React, { useState } from "react";
+import { useState } from "react";
 import { useTasks } from "../TaskContext";
+import Header from "../components/Header";
 import TaskForm from "../components/Tasks/TaskForm";
 import TaskList from "../components/Tasks/TaskList";
 
 export default function Tasks() {
-  const { tasks, loading, error, createTask, updateTask, deleteTask } = useTasks();
+  const { createTask, updateTask, deleteTask, loading, error } = useTasks();
   const [showForm, setShowForm] = useState(false);
   const [editTask, setEditTask] = useState(null);
   const [message, setMessage] = useState("");
@@ -43,7 +44,9 @@ export default function Tasks() {
   };
 
   return (
-    <div className="max-w-2xl mx-auto p-4">
+    <>
+      <Header></Header>
+      <div className="max-w-2xl mx-auto p-4">
       <div className="flex justify-between items-center mb-4">
         <h1 className="text-3xl font-bold flex items-center gap-2">
           <Hourglass /> Tasks
@@ -59,7 +62,8 @@ export default function Tasks() {
       {showForm && <TaskForm onSubmit={handleCreate} onCancel={() => setShowForm(false)} />}
       {editTask && <TaskForm initialData={editTask} onSubmit={handleUpdate} onCancel={() => setEditTask(null)} />}
 
-      <TaskList tasks={tasks} onEdit={setEditTask} onDelete={handleDelete} />
+      <TaskList onEdit={setEditTask} />
     </div>
+    </>
   );
 }

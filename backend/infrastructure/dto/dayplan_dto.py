@@ -18,6 +18,10 @@ def orm_to_domain_dayplan(orm_dayplan: dbDayplan) -> DayPlan:
 
 def orm_task_to_domain_time(task: Task):
     return TimeTask(
+        id=task.id,
+        main_task_id=task.main_task_id,
+        start_date=task.start_date,
+        end_date=task.end_date,
         description=task.description,
         owner_id=task.owner_id,
         done_hr=task.done_hr,

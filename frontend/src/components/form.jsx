@@ -1,11 +1,11 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import api from "../api";
 
 function Form(props) {
-  // console.log(props);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState(""); // ✅ success message
   const navigate = useNavigate();
 
   function handleChange(e) {
@@ -21,15 +21,21 @@ function Form(props) {
 
     try {
       const res = await api.post(props.apiUrl, props.inputs);
+
       if (props.type === "Login") {
         localStorage.setItem("access_token", res.data.access_token);
         localStorage.setItem("refresh_token", res.data.refresh_token);
         navigate("/");
       } else {
-        navigate("/login");
+        // ✅ Instead of immediately navigating, show success
+        setSuccess("✅ Registration successful! A verification email has been sent. Please check your inbox.");
+        setError("");
+        // optional: redirect after a short delay
+        setTimeout(() => navigate("/login"), 3000);
       }
     } catch (error) {
-      alert(error);
+      setError("❌ " + (error.response?.data?.detail || "Something went wrong."));
+      setSuccess("");
     } finally {
       setLoading(false);
     }
@@ -44,7 +50,7 @@ function Form(props) {
         <h2 className="text-2xl font-bold text-center text-gray-800">
           {props.type} Here
         </h2>
-        {/* Username */}
+
         {props.type === "Register" && (
           <input
             type="text"
@@ -55,7 +61,7 @@ function Form(props) {
             className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         )}
-        {/* Email (only on Register) */}
+
         <input
           type="email"
           name="email"
@@ -64,7 +70,7 @@ function Form(props) {
           onChange={handleChange}
           className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
-        {/* Password */}
+
         <input
           type="password"
           name="password"
@@ -73,9 +79,21 @@ function Form(props) {
           onChange={handleChange}
           className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
-        {/* Error message */}
+
+        {props.type === "Login" && (
+          <div className="text-right mb-2">
+            <Link
+              to="/auth/forgot-password"
+              className="text-blue-600 hover:underline text-sm"
+            >
+              Forgot password?
+            </Link>
+          </div>
+        )}
+
         {error && <p className="text-sm text-red-500">{error}</p>}
-        {/* Submit button */}
+        {success && <p className="text-sm text-green-600">{success}</p>} {/* ✅ success message */}
+
         <button
           type="submit"
           className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition"
@@ -88,7 +106,7 @@ function Form(props) {
             props.type
           )}
         </button>
-        {/* Auth links */}
+
         {props.type === "Login" ? (
           <p className="text-sm text-center text-gray-600">
             Don’t have an account?{" "}
