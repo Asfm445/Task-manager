@@ -1,3 +1,4 @@
 env
 .vscode
 end
+node_modules
