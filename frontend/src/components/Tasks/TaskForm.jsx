@@ -18,8 +18,9 @@ export default function TaskForm({ initialData = null, onCancel, onSubmit }) {
   };
 
   const [form, setForm] = useState(emptyForm);
-  const [errors, setErrors] = useState({});       // ✅ frontend errors
-  const [backendError, setBackendError] = useState(""); // ✅ backend errors
+  const [errors, setErrors] = useState({});
+  const [backendError, setBackendError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false); // ✅ Loading state
 
   const getNowTime = () => new Date().toTimeString().slice(0, 5);
 
@@ -70,18 +71,22 @@ export default function TaskForm({ initialData = null, onCancel, onSubmit }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     const newErrors = {};
-    setBackendError(""); // reset backend error before submit
+    setBackendError("");
+    setIsSubmitting(true); // ✅ Start loading
 
-    // ✅ frontend validation
+    // Frontend validation
     if (!form.description.trim()) newErrors.description = "Description is required.";
     if (form.start_date && !form.start_time) newErrors.start_time = "Start time is required when start date is set.";
     if (form.end_date && !form.end_time) newErrors.end_time = "End time is required when end date is set.";
     if (form.estimated_hr < 0) newErrors.estimated_hr = "Estimated hours cannot be negative.";
 
     setErrors(newErrors);
-    if (Object.keys(newErrors).length > 0) return;
+    if (Object.keys(newErrors).length > 0) {
+      setIsSubmitting(false); // ✅ Stop loading if validation fails
+      return;
+    }
 
-    // build payload
+    // Build payload
     const payload = {
       description: form.description,
       status: form.status,
@@ -102,11 +107,13 @@ export default function TaskForm({ initialData = null, onCancel, onSubmit }) {
     }
 
     try {
-      await onSubmit(payload); // 🔄 expect onSubmit to throw error if backend fails
+      await onSubmit(payload);
+      // ✅ If onSubmit succeeds, the parent component should handle closing the form
     } catch (err) {
-      // ✅ assume backend sends { message: "..." }
       const msg = err.response?.data?.message || err.message || "Something went wrong.";
       setBackendError(msg);
+    } finally {
+      setIsSubmitting(false); // ✅ Always stop loading regardless of success/error
     }
   };
 
@@ -115,7 +122,7 @@ export default function TaskForm({ initialData = null, onCancel, onSubmit }) {
       onSubmit={handleSubmit}
       className="flex flex-col gap-7 p-8 bg-white rounded-2xl shadow-2xl border border-gray-100 max-w-xl mx-auto"
     >
-      {/* 🔴 Backend Error Notification */}
+      {/* Backend Error Notification */}
       {backendError && (
         <div className="bg-red-100 text-red-700 px-4 py-2 rounded-lg text-center font-medium">
           {backendError}
@@ -134,8 +141,9 @@ export default function TaskForm({ initialData = null, onCancel, onSubmit }) {
           value={form.description}
           onChange={handleChange}
           required
+          disabled={isSubmitting} // ✅ Disable during submission
           placeholder="Enter a brief task description"
-          className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+          className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition disabled:bg-gray-100 disabled:cursor-not-allowed"
         />
         {errors.description && <p className="text-sm text-red-500 mt-1">{errors.description}</p>}
       </div>
@@ -150,7 +158,8 @@ export default function TaskForm({ initialData = null, onCancel, onSubmit }) {
           name="status"
           value={form.status}
           onChange={handleChange}
-          className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+          disabled={isSubmitting} // ✅ Disable during submission
+          className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition disabled:bg-gray-100 disabled:cursor-not-allowed"
         >
           <option value="pending">Pending</option>
           <option value="in_progress">In Progress</option>
@@ -167,12 +176,17 @@ export default function TaskForm({ initialData = null, onCancel, onSubmit }) {
             name="start_date"
             value={form.start_date}
             onChange={handleChange}
-            className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+            disabled={isSubmitting} // ✅ Disable during submission
+            className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition disabled:bg-gray-100 disabled:cursor-not-allowed"
           />
         </div>
         <div>
           <label htmlFor="start_time" className="block font-semibold mb-2 text-gray-800">Start Time</label>
-          <TimePicker value={form.start_time} onChange={handleStartTimeChange} />
+          <TimePicker 
+            value={form.start_time} 
+            onChange={handleStartTimeChange} 
+            disabled={isSubmitting} // ✅ Pass disabled prop to TimePicker
+          />
           {errors.start_time && <p className="text-sm text-red-500 mt-1">{errors.start_time}</p>}
         </div>
         <div>
@@ -182,12 +196,17 @@ export default function TaskForm({ initialData = null, onCancel, onSubmit }) {
             name="end_date"
             value={form.end_date}
             onChange={handleChange}
-            className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+            disabled={isSubmitting} // ✅ Disable during submission
+            className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition disabled:bg-gray-100 disabled:cursor-not-allowed"
           />
         </div>
         <div>
           <label htmlFor="end_time" className="block font-semibold mb-2 text-gray-800">End Time</label>
-          <TimePicker value={form.end_time} onChange={handleEndTimeChange} />
+          <TimePicker 
+            value={form.end_time} 
+            onChange={handleEndTimeChange} 
+            disabled={isSubmitting} // ✅ Pass disabled prop to TimePicker
+          />
           {errors.end_time && <p className="text-sm text-red-500 mt-1">{errors.end_time}</p>}
         </div>
       </div>
@@ -201,8 +220,9 @@ export default function TaskForm({ initialData = null, onCancel, onSubmit }) {
           value={form.estimated_hr}
           onChange={handleChange}
           min="0"
+          disabled={isSubmitting} // ✅ Disable during submission
           placeholder="e.g. 2"
-          className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+          className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition disabled:bg-gray-100 disabled:cursor-not-allowed"
         />
         {errors.estimated_hr && <p className="text-sm text-red-500 mt-1">{errors.estimated_hr}</p>}
       </div>
@@ -214,7 +234,8 @@ export default function TaskForm({ initialData = null, onCancel, onSubmit }) {
           name="is_repititive"
           checked={form.is_repititive}
           onChange={handleChange}
-          className="w-5 h-5 accent-blue-500 transition"
+          disabled={isSubmitting} // ✅ Disable during submission
+          className="w-5 h-5 accent-blue-500 transition disabled:opacity-50 disabled:cursor-not-allowed"
         />
         <label className="font-semibold text-gray-800">Repetitive Task</label>
       </div>
@@ -227,7 +248,8 @@ export default function TaskForm({ initialData = null, onCancel, onSubmit }) {
           name="main_task_id"
           value={form.main_task_id}
           onChange={handleChange}
-          className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+          disabled={isSubmitting} // ✅ Disable during submission
+          className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition disabled:bg-gray-100 disabled:cursor-not-allowed"
         >
           <option value="">No Main Task</option>
           {tasks.map((t) => (
@@ -244,7 +266,8 @@ export default function TaskForm({ initialData = null, onCancel, onSubmit }) {
           <button
             type="button"
             onClick={onCancel}
-            className="bg-gray-200 hover:bg-gray-300 text-gray-800 px-6 py-2 rounded-lg font-semibold shadow transition"
+            disabled={isSubmitting} // ✅ Disable during submission
+            className="bg-gray-200 hover:bg-gray-300 text-gray-800 px-6 py-2 rounded-lg font-semibold shadow transition disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-gray-200"
             title="Cancel"
           >
             Cancel
@@ -252,10 +275,21 @@ export default function TaskForm({ initialData = null, onCancel, onSubmit }) {
         )}
         <button
           type="submit"
-          className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-semibold shadow transition"
+          disabled={isSubmitting} // ✅ Disable during submission
+          className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-semibold shadow transition disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-blue-600 flex items-center justify-center gap-2"
           title="Save Task"
         >
-          Save
+          {isSubmitting ? (
+            <>
+              <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              Saving...
+            </>
+          ) : (
+            "Save"
+          )}
         </button>
       </div>
     </form>

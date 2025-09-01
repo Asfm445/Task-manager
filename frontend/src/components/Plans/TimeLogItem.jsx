@@ -75,28 +75,3 @@ export default function TimeLogItem({ log, formatTime, getDuration, onDone, onDe
   );
 }
 
-// Example parent component
-// import { useState } from "react";
-// import TimeLogItem from "./TimeLogItem";
-
-// function TimeLogList({ logs }) {
-//   const [timeLogs, setTimeLogs] = useState(logs);
-
-//   const handleDelete = (id) => {
-//     setTimeLogs((prev) => prev.filter((log) => log.id !== id));
-//   };
-
-//   return (
-//     <ul>
-//       {timeLogs.map((log) => (
-//         <TimeLogItem
-//           key={log.id}
-//           log={log}
-//           formatTime={...}
-//           getDuration={...}
-//           onDelete={handleDelete}
-//         />
-//       ))}
-//     </ul>
-//   );
-// }

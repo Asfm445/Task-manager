@@ -14,7 +14,8 @@ export default function AddTimeLogForm({ form, setForm, tasks, loading, onSubmit
             name="start"
             value={form.start}
             onChange={handleFormChange}
-            className="w-full px-3 py-2 rounded border border-blue-200 focus:outline-none focus:ring-2 focus:ring-blue-400"
+            disabled={loading}
+            className="w-full px-3 py-2 rounded border border-blue-200 focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:bg-gray-100 disabled:cursor-not-allowed"
             required
           />
         </div>
@@ -25,7 +26,8 @@ export default function AddTimeLogForm({ form, setForm, tasks, loading, onSubmit
             name="end"
             value={form.end}
             onChange={handleFormChange}
-            className="w-full px-3 py-2 rounded border border-blue-200 focus:outline-none focus:ring-2 focus:ring-blue-400"
+            disabled={loading}
+            className="w-full px-3 py-2 rounded border border-blue-200 focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:bg-gray-100 disabled:cursor-not-allowed"
             required
           />
         </div>
@@ -35,7 +37,7 @@ export default function AddTimeLogForm({ form, setForm, tasks, loading, onSubmit
             name="task_id"
             value={form.task_id}
             onChange={handleFormChange}
-            className="w-full px-3 py-2 rounded border border-blue-200 focus:outline-none focus:ring-2 focus:ring-blue-400"
+            className="w-full px-3 py-2 rounded border border-blue-200 focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:bg-gray-100 disabled:cursor-not-allowed"
             required
             disabled={loading}
           >
@@ -50,9 +52,20 @@ export default function AddTimeLogForm({ form, setForm, tasks, loading, onSubmit
       </div>
       <button
         type="submit"
-        className="self-end bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-semibold shadow transition"
+        disabled={loading}
+        className="self-end bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-semibold shadow transition disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-blue-600 flex items-center justify-center gap-2 min-w-[120px]"
       >
-        Add Log
+        {loading ? (
+          <>
+            <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            Adding...
+          </>
+        ) : (
+          "Add Log"
+        )}
       </button>
     </form>
   );

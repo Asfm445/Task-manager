@@ -12,7 +12,8 @@ export default function PlanPage() {
   const [showForm, setShowForm] = useState(false);
   const [logs, setLogs] = useState([]);
   const [plan, setPlan] = useState({});
-  const { tasks, loading } = useTasks();
+  const [loading, setLoading] = useState(false); // ✅ Added loading state for form submission
+  const { tasks, loading: tasksLoading } = useTasks();
 
   const [form, setForm] = useState({ start: "", end: "", task_id: "" });
   const dateKey = format(selectedDate, "yyyy-MM-dd");
@@ -52,6 +53,8 @@ export default function PlanPage() {
   const handleAddLog = async (e) => {
     e.preventDefault();
     if (!form.start || !form.end || !form.task_id) return;
+    
+    setLoading(true); // ✅ Start loading
     try {
       const payload = {
         task_id: parseInt(form.task_id, 10),
@@ -63,18 +66,28 @@ export default function PlanPage() {
       setForm({ start: "", end: "", task_id: "" });
       setShowForm(false);
 
+      // Refresh logs after adding
       const res = await api.post("plans/", { date: dateKey });
       setLogs(res.data.times || []);
     } catch (err) {
       console.error("Failed to add log:", err);
+    } finally {
+      setLoading(false); // ✅ Stop loading
     }
   };
 
   const handleMarkSuccess = async (timelog_id) => {
     try {
       await api.get(`plans/timelog/done/${timelog_id}`);
-      // const res = await api.post("plans/", { date: dateKey });
-      // setLogs(res.data.times || []);
+      
+      // ✅ IMPORTANT: Update the local state to reflect the change
+      setLogs(prevLogs => 
+        prevLogs.map(log => 
+          log.id === timelog_id 
+            ? { ...log, status: "completed" } 
+            : log
+        )
+      );
     } catch (err) {
       console.error("Failed to mark success:", err);
     }
@@ -111,7 +124,13 @@ export default function PlanPage() {
           </div>
 
           {showForm && (
-            <AddTimeLogForm form={form} setForm={setForm} tasks={tasks} loading={loading} onSubmit={handleAddLog} />
+            <AddTimeLogForm 
+              form={form} 
+              setForm={setForm} 
+              tasks={tasks} 
+              loading={loading} // ✅ Pass the correct loading state
+              onSubmit={handleAddLog} 
+            />
           )}
 
           {logs.length === 0 ? (

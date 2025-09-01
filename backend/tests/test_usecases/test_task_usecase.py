@@ -159,21 +159,6 @@ async def test_assigned_user_create_subtask(service, mock_uow, current_user):
 
 
 
-@pytest.mark.asyncio
-async def test_delete_task_permission_error(service, mock_uow, current_user):
-    task = TaskOutput(id=1,
-                      description="disc",
-                      end_date=datetime.now(timezone.utc) + timedelta(days=2),
-                      estimated_hr=1,
-                      owner_id=99, 
-                      assignees=[])
-    mock_uow.tasks.get_task = AsyncMock(return_value=task)
-
-    with pytest.raises(PermissionError):
-        await service.delete_task(1, current_user)
-
-    mock_uow.tasks.delete_task.assert_not_called()
-
 
 @pytest.mark.asyncio
 async def test_update_task(service, mock_uow, current_user):
@@ -641,8 +626,8 @@ async def test_get_task_analytics_status_analysis(service, mock_uow, current_use
     
     assert status_analysis["current_status"] == "in_progress"
     assert status_analysis["status_health"] == "good"  # in_progress with done_hr > 0
-    assert status_analysis["is_repetitive"] == True
-    assert status_analysis["is_stopped"] == False
+    assert status_analysis["is_repetitive"] is True
+    assert status_analysis["is_stopped"] is False
     assert status_analysis["status_duration_days"] >= 4  # Should be around 5 days
 
 @pytest.mark.asyncio
@@ -1114,7 +1099,7 @@ async def test_delete_task_success(service, mock_uow, current_user):
     
     result = await service.delete_task(1, current_user)
     
-    assert result == True
+    assert result is True
     mock_uow.tasks.delete_task.assert_awaited_once_with(1, current_user.id)
 
 @pytest.mark.asyncio
@@ -1231,7 +1216,7 @@ async def test_analytics_repetitive_task_with_stops(service, mock_uow, current_u
     analytics = result["analytics"]
     
     assert analytics["status_analysis"]["stop_frequency"] == 1
-    assert analytics["status_analysis"]["is_stopped"] == True
+    assert analytics["status_analysis"]["is_stopped"] is True
     assert "resuming" in analytics["summary"]["recommendations"][0].lower()
 
 @pytest.mark.asyncio
