@@ -418,7 +418,7 @@ class TaskService:
             ]
         }
 
-    async def get_tasks(self, current_user,search_name, skip: int = 0, limit: int = 100):
+    async def get_tasks(self, current_user,search_name=None, skip: int = 0, limit: int = 100):
         result = []
         async with self.uow:
             try:
