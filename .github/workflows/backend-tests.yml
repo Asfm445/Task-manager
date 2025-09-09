@@ -33,7 +33,7 @@ jobs:
 
       - name: Build backend Docker image
         run: |
-          docker build -t backend-test .
+          docker build -t backend-test ./backend
 
       - name: Run tests in container
         env:
