@@ -418,11 +418,14 @@ class TaskService:
             ]
         }
 
-    async def get_tasks(self, current_user, skip: int = 0, limit: int = 100):
+    async def get_tasks(self, current_user,search_name, skip: int = 0, limit: int = 100):
         result = []
         async with self.uow:
             try:
-                tasks = await self.uow.tasks.get_tasks(skip=skip, limit=limit)
+                if search_name:
+                    tasks = await self.uow.tasks.get_tasks_by_name(search_name, skip=skip, limit=limit)
+                else:
+                    tasks = await self.uow.tasks.get_tasks(skip=skip, limit=limit)
                 tasks.sort(key=lambda x: x.end_date)
 
                 for task in tasks:

@@ -33,45 +33,66 @@ export default function TimeLogItem({ log, formatTime, getDuration, onDone, onDe
   };
 
   return (
-    <li className="flex flex-col md:flex-row md:justify-between md:items-center bg-blue-50 rounded-xl px-6 py-4 border border-blue-100 shadow-md hover:bg-blue-100 transition-all duration-150">
-      <div className="flex items-center gap-5">
-        <span className="font-mono text-lg text-blue-800">
-          {formatTime(log.start_time)} <span className="mx-1 text-gray-400">–</span>{" "}
-          {formatTime(log.end_time)}
-        </span>
-        <span className="text-sm text-blue-700 font-bold bg-blue-100 px-4 py-1 rounded-full shadow">
-          {getDuration(log.start_time, log.end_time)}
-        </span>
-      </div>
-      <div className="flex items-center gap-4 mt-3 md:mt-0">
-        <span className="text-sm text-gray-700 font-medium">
-          Task: <span className="text-blue-700 font-semibold">{log.task?.description || log.task || log.task_id}</span>
-        </span>
-        {done ? (
-          <span className="flex items-center gap-1 text-green-600 font-semibold">
-            <CheckCircle className="w-5 h-5" /> Done
+    <li className="bg-blue-50 rounded-xl p-4 border border-blue-100 shadow-md hover:bg-blue-100 transition-all duration-150">
+      {/* Top Row - Time and Duration */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+        <div className="flex items-center gap-3">
+          <span className="font-mono text-base sm:text-lg text-blue-800 font-medium">
+            {formatTime(log.start_time)} <span className="mx-1 text-gray-400">–</span>{" "}
+            {formatTime(log.end_time)}
           </span>
-        ) : (
-          <button
-            onClick={handleMarkDone}
-            className="bg-green-500 hover:bg-green-600 text-white px-4 py-1 rounded-lg text-sm font-semibold shadow transition disabled:opacity-60"
-            title="Mark as Done"
-            disabled={loading}
-          >
-            {loading ? "Marking..." : "Mark Done"}
-          </button>
+          <span className="text-xs sm:text-sm text-blue-700 font-bold bg-blue-200 px-2 py-1 rounded-full shadow">
+            {getDuration(log.start_time, log.end_time)}
+          </span>
+        </div>
+        
+        {/* Status indicator for mobile */}
+        {done && (
+          <span className="sm:hidden flex items-center gap-1 text-green-600 font-semibold text-sm">
+            <CheckCircle className="w-4 h-4" /> Completed
+          </span>
         )}
-        <button
-          onClick={handleDelete}
-          className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded-lg text-sm font-semibold shadow transition disabled:opacity-60 flex items-center gap-1"
-          title="Delete Time Log"
-          disabled={deleting}
-        >
-          <Trash2 className="w-4 h-4" />
-          {deleting ? "Deleting..." : "Delete"}
-        </button>
+      </div>
+      
+      {/* Bottom Row - Task and Actions */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex-1 min-w-0">
+          <span className="text-sm text-gray-700 font-medium block mb-1 sm:mb-0 sm:inline">
+            Task:{" "}
+          </span>
+          <span className="text-blue-700 font-semibold text-sm sm:text-base truncate block sm:inline">
+            {log.task?.description || log.task || log.task_id}
+          </span>
+        </div>
+        
+        <div className="flex items-center gap-2 self-end sm:self-auto">
+          {done ? (
+            <span className="hidden sm:flex items-center gap-1 text-green-600 font-semibold text-sm">
+              <CheckCircle className="w-4 h-4" /> Completed
+            </span>
+          ) : (
+            <button
+              onClick={handleMarkDone}
+              className="bg-green-500 hover:bg-green-600 text-white px-3 py-1.5 rounded-lg text-xs sm:text-sm font-semibold shadow transition disabled:opacity-60 flex items-center gap-1"
+              title="Mark as Done"
+              disabled={loading}
+            >
+              <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4" />
+              <span className="hidden xs:inline">{loading ? "Marking..." : "Done"}</span>
+            </button>
+          )}
+          
+          <button
+            onClick={handleDelete}
+            className="bg-red-500 hover:bg-red-600 text-white px-3 py-1.5 rounded-lg text-xs sm:text-sm font-semibold shadow transition disabled:opacity-60 flex items-center gap-1"
+            title="Delete Time Log"
+            disabled={deleting}
+          >
+            <Trash2 className="w-3 h-3 sm:w-4 sm:h-4" />
+            <span className="hidden xs:inline">{deleting ? "Deleting..." : "Delete"}</span>
+          </button>
+        </div>
       </div>
     </li>
   );
 }
-

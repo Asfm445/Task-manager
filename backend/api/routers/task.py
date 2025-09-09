@@ -32,10 +32,11 @@ async def create_task(
 async def read_tasks(
     skip: int = 0,
     limit: int = 10,
+    search_name: Optional[str] = None,
     service=Depends(get_task_service),
     current_user=Depends(get_current_user),
 ):
-    result = await service.get_tasks(current_user=current_user, skip=skip, limit=limit)
+    result = await service.get_tasks(current_user=current_user,search_name=search_name, skip=skip, limit=limit)
     return result
 
 

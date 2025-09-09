@@ -1,29 +1,25 @@
+# from api.config import settings
+import os
+from typing import List
+
+from domain.interfaces.daypla_uow import IDayPlanUoW
+from domain.interfaces.iuow import IUnitOfWork
+from domain.models.user_model import TokenClaimUser
 from fastapi import Depends, HTTPException
 from fastapi.security import OAuth2PasswordBearer
 from infrastructure.db.session import AsyncSessionLocal
-from infrastructure.repositories.dayplan_repository import DayPlanRepository
-from infrastructure.repositories.task_repository import TaskRepository
 from infrastructure.repositories.token_repository import TokenRepository
 from infrastructure.repositories.user_repository import UserRepository
+from infrastructure.services.email_service import EmailService
 from infrastructure.services.jwt_service import JwtService
 from infrastructure.services.password_service import PasswordService
+from infrastructure.uow.dayyplan_uow import DayPlanUnitOfWork
+from infrastructure.uow.task_uow import SqlAlchemyUnitOfWork
 from jose import JWTError
 from sqlalchemy.ext.asyncio import AsyncSession
 from usecases.dayplan_usecase import DayPlanUseCase
 from usecases.task_usecase import TaskService
 from usecases.user_usecase import UserUsecase
-from infrastructure.uow.task_uow import SqlAlchemyUnitOfWork
-from domain.interfaces.iuow import IUnitOfWork
-from infrastructure.uow.dayyplan_uow import DayPlanUnitOfWork
-from domain.interfaces.daypla_uow import IDayPlanUoW
-from infrastructure.services.email_service import EmailService
-from typing import List
-from domain.models.user_model import TokenClaimUser
-
-# from api.config import settings
-import os
-from dotenv import load_dotenv
-
 
 SECRET_KEY = os.getenv("SECRET_KEY")
 ALGORITHM = os.getenv("ALGORITHM")
@@ -32,11 +28,6 @@ REFRESH_TOKEN_EXPIRE_HOURS = int(os.getenv("REFRESH_TOKEN_EXPIRE_HOURS"))
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/token")
 
 
-# SMTP_HOST=os.getenv("SMTP_HOST")
-# SMTP_PORT=os.getenv("SMTP_PORT")
-# SMTP_USERNAME=os.getenv("SMTP_USERNAME")
-# FROM_EMAIL=os.getenv("FROM_EMAIL")
-# FROM_NAME=os.getenv("FROM_NAME")
 
 
 # Async DB dependency
@@ -87,8 +78,6 @@ async def get_current_user(
         email = payload.get("email")
         user_id = payload.get("user_id")
         role=payload.get("role")
-        print("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
-        print(payload)
         if username is None or email is None or user_id is None or role is None:
             raise HTTPException(
                 status_code=401, detail="Invalid authentication credentialsss"

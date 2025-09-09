@@ -1,5 +1,25 @@
+
+
+
+import { useEffect, useState } from "react";
+
 export default function AddTimeLogForm({ form, setForm, tasks, loading, onSubmit }) {
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filteredTasks, setFilteredTasks] = useState(tasks);
+
   const handleFormChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
+
+  // Filter tasks based on search term
+  useEffect(() => {
+    if (searchTerm.trim() === "") {
+      setFilteredTasks(tasks);
+    } else {
+      const filtered = tasks.filter(task => 
+        task.description.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+      setFilteredTasks(filtered);
+    }
+  }, [searchTerm, tasks]);
 
   return (
     <form
@@ -33,6 +53,14 @@ export default function AddTimeLogForm({ form, setForm, tasks, loading, onSubmit
         </div>
         <div className="flex-1">
           <label className="block text-sm font-medium text-blue-700 mb-1">Task</label>
+          <input
+            type="text"
+            placeholder="Search tasks..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full px-3 py-2 rounded border border-blue-200 focus:outline-none focus:ring-2 focus:ring-blue-400 mb-2"
+            disabled={loading}
+          />
           <select
             name="task_id"
             value={form.task_id}
@@ -42,7 +70,7 @@ export default function AddTimeLogForm({ form, setForm, tasks, loading, onSubmit
             disabled={loading}
           >
             <option value="">Select task</option>
-            {tasks.map((task) => (
+            {filteredTasks.map((task) => (
               <option key={task.id} value={task.id}>
                 {task.description || `Task ${task.id}`}
               </option>

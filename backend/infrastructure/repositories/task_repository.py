@@ -10,6 +10,7 @@ from infrastructure.dto.task_dto import (
     orm_to_domain_task_progress,
 )
 from infrastructure.models.model import StopProgress, Task, TaskProgress, User
+from sqlalchemy import and_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
@@ -33,7 +34,7 @@ class TaskRepository(AbstractTaskRepository):
 
     async def get_tasks(self, skip: int = 0, limit: int = 100) -> List[TaskOutput]:
         result = await self.db.execute(
-            select(Task)
+            select(Task).filter(Task.status!="completed")
             .options(
                 selectinload(Task.assignees),
                 selectinload(Task.owner),
@@ -130,3 +131,25 @@ class TaskRepository(AbstractTaskRepository):
             .limit(limit)
         )
         return [ domain_to_orm_task_progress(progress)  for progress in result.scalars().all()]
+    
+
+
+
+    async def get_tasks_by_name(self, name: str, skip: int = 0, limit: int = 100):
+        words = name.split()
+        conditions = [Task.description.ilike(f"%{w}%") for w in words]
+
+        query = (
+            select(Task)
+            .options(
+                selectinload(Task.assignees),
+                selectinload(Task.owner),
+                selectinload(Task.subtasks),
+            )
+            .filter(and_(*conditions))  # must contain all words
+            .offset(skip)
+            .limit(limit)
+        )
+        result = await self.db.execute(query)
+        tasks = result.scalars().all()
+        return [orm_to_domain_task_output(task) for task in tasks]

@@ -56,3 +56,6 @@ class AbstractTaskRepository(ABC):
     @abstractmethod
     async def get_progress(self, task_id: int, skip: int = 0, limit: int = 100):
         pass
+    @abstractmethod
+    async def get_tasks_by_name(self, name: str, skip: int = 0, limit: int = 100) -> List[TaskOutput]:
+        pass

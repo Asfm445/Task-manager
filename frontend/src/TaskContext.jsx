@@ -47,6 +47,20 @@ export const TaskProvider = ({ children }) => {
       setLoading(false);
     }
   };
+  const searchTasks = async (query) => {
+  setError(null);
+  if (!(await ensureAuthorized())) return;
+
+  try {
+    const res = await api.get("/tasks", { params: { search_name: query, limit: 20 } });
+    return res.data || [];
+  } catch (err) {
+    console.error("Error searching tasks:", err);
+    setError(err);
+    return [];
+  }
+};
+
 
   const createTask = async (payload) => {
     setError(null);
@@ -156,6 +170,7 @@ export const TaskProvider = ({ children }) => {
         fetchTasks,
         createTask,
         updateTask,
+        searchTasks, 
         deleteTask,
         stopTask,
         startTask,
