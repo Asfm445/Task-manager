@@ -13,7 +13,7 @@ export default function PlanPage() {
   const [logs, setLogs] = useState([]);
   const [plan, setPlan] = useState({});
   const [loading, setLoading] = useState(false); // ✅ Added loading state for form submission
-  const { tasks, loading: tasksLoading } = useTasks();
+  const { tasks, searchTasks, loading: tasksLoading } = useTasks();
 
   const [form, setForm] = useState({ start: "", end: "", task_id: "" });
   const dateKey = format(selectedDate, "yyyy-MM-dd");
@@ -128,6 +128,7 @@ export default function PlanPage() {
               form={form} 
               setForm={setForm} 
               tasks={tasks} 
+              searchTasks={ searchTasks}
               loading={loading} // ✅ Pass the correct loading state
               onSubmit={handleAddLog} 
             />
