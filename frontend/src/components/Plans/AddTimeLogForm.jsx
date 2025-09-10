@@ -3,7 +3,7 @@
 
 import { useEffect, useState } from "react";
 
-export default function AddTimeLogForm({ form, setForm, tasks, loading, onSubmit }) {
+export default function AddTimeLogForm({ form, setForm, tasks, searchTasks, loading, onSubmit }) {
   const [searchTerm, setSearchTerm] = useState("");
   const [filteredTasks, setFilteredTasks] = useState(tasks);
 
@@ -14,10 +14,10 @@ export default function AddTimeLogForm({ form, setForm, tasks, loading, onSubmit
     if (searchTerm.trim() === "") {
       setFilteredTasks(tasks);
     } else {
-      const filtered = tasks.filter(task => 
-        task.description.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-      setFilteredTasks(filtered);
+      async function search(){
+        let filtered=await searchTasks(searchTerm);
+        setFilteredTasks(filtered);
+      }search()
     }
   }, [searchTerm, tasks]);
 
