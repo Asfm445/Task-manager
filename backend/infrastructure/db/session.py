@@ -28,7 +28,7 @@ Base = declarative_base()
 
 async def get_db():
     max_retries = 5  # number of times to retry
-    delay_seconds = 1  # wait time between retries
+    delay_seconds =3  # wait time between retries
 
     for attempt in range(max_retries):
         try:
