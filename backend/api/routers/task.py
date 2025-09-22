@@ -138,3 +138,11 @@ async def task_analytics(
     - Summary and recommendations
     """
     return await service.get_task_analytics(task_id, current_user)
+
+@router.get("/", response_model=List[Task])  # adjust schema
+@handle_service_result
+async def list_tasks(
+    service=Depends(get_task_service),
+    current_user=Depends(get_current_user),
+):
+    return await service.list_tasks(current_user)

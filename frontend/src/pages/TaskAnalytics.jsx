@@ -1,31 +1,33 @@
 import {
-    AlertCircle,
-    Calendar,
-    CheckCircle,
-    Clock,
-    PauseCircle,
-    PieChart as PieChartIcon,
-    PlayCircle,
-    Target,
-    TrendingUp,
-    Users
+  AlertCircle,
+  Calendar,
+  CheckCircle,
+  Clock,
+  PauseCircle,
+  PieChart as PieChartIcon,
+  PlayCircle,
+  Target,
+  TrendingUp,
+  Users
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import {
-    Bar,
-    BarChart,
-    CartesianGrid,
-    Cell,
-    Legend,
-    Line,
-    LineChart,
-    Pie,
-    PieChart,
-    ResponsiveContainer,
-    Tooltip,
-    XAxis,
-    YAxis
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Legend,
+  Line,
+  LineChart,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis
 } from 'recharts';
+import api from '../api';
+import Header from '../components/Header';
 
 // Mock data based on your provided information
 const mockTasks = [
@@ -104,25 +106,40 @@ const TaskAnalyticsDashboard = () => {
   });
 
   useEffect(() => {
-    // Simulate API fetch
     const fetchData = async () => {
       setLoading(true);
       try {
-        // Using mock data for demonstration
-        setTimeout(() => {
-          setTasks(mockTasks);
-          setTimeLogs(mockTimeLogs);
-          setAnalyticsData(generateAnalyticsData());
-          setLoading(false);
-        }, 800);
-      } catch (error) {
-        console.error('Failed to fetch data:', error);
+        // 1) tasks for the user
+        const tasksRes = await api.get('/tasks');
+        const tasksData = Array.isArray(tasksRes.data) ? tasksRes.data : [];
+        setTasks(tasksData);
+
+        // 2) timelogs via dayplans
+        const dayplansRes = await api.get('/plans/all');
+        const dayplans = Array.isArray(dayplansRes.data) ? dayplansRes.data : [];
+        const logs = dayplans.flatMap(dp =>
+          (dp.times || []).map(t => ({
+            ...t,
+            date: dp.date // ensure date is present for analytics
+          }))
+        );
+        setTimeLogs(logs);
+
+        // 3) build analytics data (replace with a real backend endpoint if you add one)
+        setAnalyticsData({
+          completionRate: [],   // optionally compute from tasksData
+          timeAllocation: [],   // optionally bucket tasks by category
+          userProductivity: [], // single-user app -> omit or map to your needs
+          dailyUtilization: []  // derive from logs by date
+        });
+      } catch (e) {
+        console.error('Failed to fetch analytics data', e);
+      } finally {
         setLoading(false);
       }
     };
-
     fetchData();
-  }, []);
+  }, [timeRange]);
 
   // Calculate statistics
   const calculateStats = () => {
@@ -223,6 +240,7 @@ const TaskAnalyticsDashboard = () => {
 
   return (
     <div className="p-6 bg-gray-50 min-h-screen">
+      <Header />
       <div className="max-w-7xl mx-auto">
         <h1 className="text-3xl font-bold text-gray-800 mb-2">Task Analytics Dashboard</h1>
         <p className="text-gray-600 mb-8">Comprehensive analysis of your tasks and productivity</p>

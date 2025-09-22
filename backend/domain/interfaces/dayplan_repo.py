@@ -38,3 +38,8 @@ class AbstractDayPlanRepository(ABC):
     @abstractmethod
     async def update_time_log(self, time_log_id: int, data: dict)-> Optional[TimeLog]:
         pass
+
+
+    @abstractmethod
+    async def get_all_dayplan(self, user):
+        pass

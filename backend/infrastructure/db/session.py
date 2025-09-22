@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import os
 
 from dotenv import load_dotenv
@@ -21,26 +22,28 @@ AsyncSessionLocal = sessionmaker(
 
 Base = declarative_base()
 
-# Dependency
-# async def get_db():
-#     async with AsyncSessionLocal() as session:
-#         yield session
+# Create a logger
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+MAX_RETRIES = 5  # number of times to retry
+INITIAL_DELAY = 3  # wait time between retries
 
 async def get_db():
-    max_retries = 5  # number of times to retry
-    delay_seconds =3  # wait time between retries
+    max_retries = MAX_RETRIES  
+    delay_seconds = INITIAL_DELAY  
 
     for attempt in range(max_retries):
         try:
             async with AsyncSessionLocal() as session:
                 # test the connection
                 await session.execute("SELECT 1")
-                yield session
-            break
+                return session
         except OperationalError:
             if attempt < max_retries - 1:
-                print(f"DB not ready, retrying in {delay_seconds}s... (attempt {attempt+1})")
+                logger.warning(f"DB not ready, retrying in {delay_seconds}s... (attempt {attempt+1})")
                 await asyncio.sleep(delay_seconds)
+                delay_seconds = min(delay_seconds * 2, MAX_RETRIES * INITIAL_DELAY)
             else:
-                print("Could not connect to DB after multiple attempts!")
-                raise
+                logger.error("Could not connect to DB after multiple attempts!")
+                raise OperationalError("Could not connect to database")

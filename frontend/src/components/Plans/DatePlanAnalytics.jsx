@@ -1,9 +1,11 @@
 import { Calendar, CalendarDays, Clock, Target, TrendingUp, Zap } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import {
-    Bar, BarChart, CartesianGrid, Cell, Legend, Pie, PieChart,
-    ResponsiveContainer, Tooltip, XAxis, YAxis
+  Bar, BarChart, CartesianGrid, Cell, Legend, Pie, PieChart,
+  ResponsiveContainer, Tooltip, XAxis, YAxis
 } from 'recharts';
+import api from "../../api"; // adjust path as needed
+import Header from "../Header"; // adjust path if needed
 
 // Mock data
 const mockTimeLogs = [
@@ -52,7 +54,8 @@ const calculateStats = (logs) => {
   const topicStats = {};
   let totalMinutes = 0;
 
-  logs.forEach(log => {
+  logs.filter(log => log.date && log.start_time && log.end_time)
+    .forEach(log => {
     const start = new Date(`2000-01-01T${log.start_time}`);
     const end = new Date(`2000-01-01T${log.end_time}`);
     const duration = (end - start) / (1000 * 60);
@@ -60,7 +63,7 @@ const calculateStats = (logs) => {
 
     dailyStats[log.date] = (dailyStats[log.date] || 0) + duration;
 
-    const topic = log.description.split(' ')[0];
+    const topic = (log.description || '').split(' ')[0];
     topicStats[topic] = (topicStats[topic] || 0) + duration;
   });
 
@@ -260,13 +263,30 @@ const TimeLogAnalytics = () => {
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
-      setTimeout(() => {
-        setTimeLogs(mockTimeLogs);
-        setLoading(false);
-      }, 800);
+      try {
+        // Fetch all dayplans for the user
+        const res = await api.get("/plans/all");
+        // Flatten all timelogs from all dayplans
+        const allLogs = res.data
+          .flatMap(dayplan => 
+            (dayplan.times || []).map(log => ({
+              ...log,
+              date: dayplan.date // ensure each log has a date
+            }))
+          );
+        // Optionally filter by selected month/year
+        const filteredLogs = allLogs.filter(log => {
+          const [year, month] = log.date.split('-').map(Number);
+          return year === selectedYear && month === selectedMonth;
+        });
+        setTimeLogs(filteredLogs);
+      } catch (err) {
+        console.error("Failed to fetch dayplans", err);
+      }
+      setLoading(false);
     };
     fetchData();
-  }, []);
+  }, [selectedYear, selectedMonth]);
 
   const calendarData = useMemo(() => generateCalendarData(timeLogs, selectedYear, selectedMonth), [timeLogs, selectedYear, selectedMonth]);
   const stats = useMemo(() => calculateStats(timeLogs), [timeLogs]);
@@ -278,20 +298,23 @@ const TimeLogAnalytics = () => {
   );
 
   return (
-    <div className="p-6 bg-gray-50 min-h-screen">
-      <div className="max-w-7xl mx-auto">
-        <h1 className="text-3xl font-bold text-gray-800 mb-2">Time Log Analytics</h1>
-        <p className="text-gray-600 mb-8">Analyze your productivity patterns and time distribution</p>
+    <>
+      <Header />
+      <div className="p-6 bg-gray-50 min-h-screen">
+        <div className="max-w-7xl mx-auto">
+          <h1 className="text-3xl font-bold text-gray-800 mb-2">Time Log Analytics</h1>
+          <p className="text-gray-600 mb-8">Analyze your productivity patterns and time distribution</p>
 
-        <SummaryCards stats={stats} />
-        <CalendarHeatmap calendarData={calendarData} />
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-          <DailyBarChart dailyData={stats.dailyData} />
-          <TopicPieChart topicData={stats.topicData} />
+          <SummaryCards stats={stats} />
+          <CalendarHeatmap calendarData={calendarData} />
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+            <DailyBarChart dailyData={stats.dailyData} />
+            <TopicPieChart topicData={stats.topicData} />
+          </div>
+          <TimeLogTable logs={timeLogs} />
         </div>
-        <TimeLogTable logs={timeLogs} />
       </div>
-    </div>
+    </>
   );
 };
 

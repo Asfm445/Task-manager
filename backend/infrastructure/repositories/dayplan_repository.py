@@ -124,4 +124,17 @@ class DayPlanRepository(AbstractDayPlanRepository):
         return orm_to_domain_timelog(time_log)
 
 
+    async def get_all_dayplan(self, user):
+        result = await self.db.execute(
+            select(DayPlan)
+            .options(
+                selectinload(DayPlan.times).selectinload(TimeLog.task)
+            )
+            .filter(DayPlan.user_id == user.id)
+            .order_by(DayPlan.date.desc())
+        )
+        orm_dayplans = result.scalars().all()
+        return [orm_to_domain_dayplan(dp) for dp in orm_dayplans]
+
+
     

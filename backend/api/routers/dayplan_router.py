@@ -1,3 +1,5 @@
+from typing import List
+
 from api.dependencies import get_current_user, get_dayplan_usecase
 from api.dto.dayplan_dto import time_create_to_domain
 from api.schemas.dayplan_schema import DayPlan, DayPlanCreate, Time, TimeCreate
@@ -56,3 +58,12 @@ async def timelog_done(
     current_user=Depends(get_current_user),
 ):
     return await usecase.mark_timelog_success(time_log_id, current_user)
+
+
+@router.get("/all", response_model=List[DayPlan])
+@handle_service_result
+async def get_all_dayplan(
+    usecase=Depends(get_dayplan_usecase),
+    current_user=Depends(get_current_user),
+):
+    return await usecase.get_all_dayplan(current_user)

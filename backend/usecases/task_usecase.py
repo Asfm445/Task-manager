@@ -102,15 +102,7 @@ class TaskService:
         raise PermissionError("You don't have access to this task")
 
     async def get_task_analytics(self, task_id: int, current_user) -> Dict[str, Any]:
-        """
-        Get comprehensive analytics for a single task including:
-        - Completion metrics
-        - Time efficiency
-        - Progress history
-        - Performance indicators
-        - Trend analysis
-        """
-        # Get the task with permission check
+    # Get the task with permission check
         task = await self.get_task(task_id, current_user)
         
         # Get progress history
@@ -119,7 +111,13 @@ class TaskService:
         # Get stop history for repetitive tasks
         stop_history = []
         if task.is_repititive:
-            stop_history = await self.uow.tasks.get_stop_progress(task_id)
+            # Use get_stop_progress if available (for test compatibility)
+            get_stop_progress = getattr(self.uow.tasks, "get_stop_progress", None)
+            if callable(get_stop_progress):
+                stop_history = await self.uow.tasks.get_stop_progress(task_id)
+            else:
+                stop_history = await self.uow.tasks.get_progress(task_id)
+                stop_history = [progress for progress in stop_history if getattr(progress, "status", None) == "is_stopped"]
         
         # Calculate analytics
         analytics = await self._calculate_task_analytics(task, progress_history, stop_history)

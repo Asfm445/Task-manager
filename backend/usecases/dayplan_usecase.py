@@ -147,5 +147,11 @@ class DayPlanUseCase:
         return time_log
 
 
+    async def get_all_dayplan(self, current_user):
+        async with self.uow:
+            dayplans = await self.uow.dayplan_repo.get_all_dayplan(current_user)
+            return dayplans
+
+
 
 
