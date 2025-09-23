@@ -10,7 +10,7 @@ import {
   TrendingUp,
   Users
 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Bar,
   BarChart,
@@ -26,195 +26,230 @@ import {
   XAxis,
   YAxis
 } from 'recharts';
-import api from '../api';
 import Header from '../components/Header';
+import { useTasks } from '../TaskContext'; // Import useTasks
 
-// Mock data based on your provided information
-const mockTasks = [
-  { id: 1, description: "correct some issue with task-manager project", end_date: "2025-09-01 18:16:00+00", estimated_hr: 1, done_hr: 1, is_repititive: false, status: "completed", start_date: "2025-09-01 17:21:00+00", main_task_id: null, owner_id: 1, is_stopped: false },
-  { id: 2, description: "set up vm kali linux and find a way for cyber", end_date: "2025-09-01 19:26:00+00", estimated_hr: 1, done_hr: 1, is_repititive: false, status: "completed", start_date: "2025-09-01 18:26:00+00", main_task_id: null, owner_id: 1, is_stopped: false },
-  { id: 6, description: "creating needed virtual machines", end_date: "2025-09-03 08:55:00+00", estimated_hr: 2, done_hr: 2.45, is_repititive: false, status: "completed", start_date: "2025-09-03 06:30:00+00", main_task_id: null, owner_id: 1, is_stopped: false },
-  { id: 8, description: "Plan for phase 2", end_date: "2025-09-07 00:31:00+00", estimated_hr: 1, done_hr: 1, is_repititive: false, status: "completed", start_date: "2025-09-06 19:36:00+00", main_task_id: 7, owner_id: 1, is_stopped: false },
-  { id: 10, description: "Array and Matrix", end_date: "2025-10-07 05:52:00+00", estimated_hr: 8, done_hr: 2, is_repititive: false, status: "in_progress", start_date: "2025-09-07 05:57:00+00", main_task_id: 9, owner_id: 1, is_stopped: false },
-  { id: 11, description: "DFS and Union Find", end_date: "2025-10-21 13:59:00+00", estimated_hr: 19, done_hr: 3.48, is_repititive: false, status: "in_progress", start_date: "2025-09-07 14:10:00+00", main_task_id: 9, owner_id: 1, is_stopped: false },
-  { id: 12, description: "stack and que", end_date: "2025-11-07 08:12:00+00", estimated_hr: 15, done_hr: 0, is_repititive: false, status: "in_progress", start_date: "2025-09-09 07:17:00+00", main_task_id: 9, owner_id: 1, is_stopped: false },
-  { id: 5, description: "Random Forest", end_date: "2025-09-02 14:30:00+00", estimated_hr: 2, done_hr: 2.23, is_repititive: false, status: "completed", start_date: "2025-09-02 12:16:00+00", main_task_id: 4, owner_id: 1, is_stopped: false },
-  { id: 4, description: "ML", end_date: "2025-11-02 13:12:00+00", estimated_hr: 64, done_hr: 2, is_repititive: false, status: "in_progress", start_date: "2025-09-02 12:17:00+00", main_task_id: null, owner_id: 1, is_stopped: false },
-  { id: 14, description: "correct some issue with task_manager project", end_date: "2025-09-09 20:22:00+00", estimated_hr: 2, done_hr: 0, is_repititive: false, status: "pending", start_date: "2025-09-09 10:27:00+00", main_task_id: null, owner_id: 1, is_stopped: false },
-  { id: 9, description: "DSA practice", end_date: "2025-11-21 21:42:00+00", estimated_hr: 240, done_hr: 0, is_repititive: false, status: "pending", start_date: "2025-09-07 20:42:00+00", main_task_id: null, owner_id: 1, is_stopped: false },
-  { id: 7, description: "ML phase 2", end_date: "2025-09-21 19:27:00+00", estimated_hr: 16, done_hr: 1, is_repititive: false, status: "in_progress", start_date: "2025-09-07 19:27:00+00", main_task_id: 4, owner_id: 1, is_stopped: false },
-];
-
-const mockTimeLogs = [
-  { id: 1, end_time: "14:18:00", start_time: "13:18:00", task_id: 1, plan_id: 1, done: true },
-  { id: 2, end_time: "15:34:00", start_time: "14:34:00", task_id: 2, plan_id: 1, done: true },
-  { id: 4, end_time: "04:56:00", start_time: "02:29:00", task_id: 6, plan_id: 3, done: true },
-  { id: 5, end_time: "16:35:00", start_time: "15:35:00", task_id: 8, plan_id: 4, done: true },
-  { id: 6, end_time: "03:54:00", start_time: "01:54:00", task_id: 10, plan_id: 5, done: true },
-  { id: 7, end_time: "11:30:00", start_time: "10:01:00", task_id: 11, plan_id: 5, done: true },
-  { id: 8, end_time: "04:03:00", start_time: "02:03:00", task_id: 11, plan_id: 6, done: true },
-  { id: 10, end_time: "05:26:00", start_time: "03:26:00", task_id: 12, plan_id: 7, done: false },
-];
-
-// Generate mock analytics data
-const generateAnalyticsData = () => {
-  return {
-    completionRate: [
-      { date: '2025-09-01', total_tasks: 5, completed_tasks: 3, completion_rate: 60 },
-      { date: '2025-09-02', total_tasks: 7, completed_tasks: 5, completion_rate: 71 },
-      { date: '2025-09-03', total_tasks: 6, completed_tasks: 4, completion_rate: 67 },
-      { date: '2025-09-04', total_tasks: 8, completed_tasks: 6, completion_rate: 75 },
-      { date: '2025-09-05', total_tasks: 4, completed_tasks: 3, completion_rate: 75 },
-      { date: '2025-09-06', total_tasks: 9, completed_tasks: 7, completion_rate: 78 },
-      { date: '2025-09-07', total_tasks: 7, completed_tasks: 5, completion_rate: 71 },
-    ],
-    timeAllocation: [
-      { category: 'Machine Learning', estimated_hours: 20, actual_hours: 15 },
-      { category: 'Algorithms', estimated_hours: 15, actual_hours: 12 },
-      { category: 'Project Work', estimated_hours: 8, actual_hours: 6 },
-      { category: 'Infrastructure', estimated_hours: 5, actual_hours: 4 },
-      { category: 'Planning', estimated_hours: 3, actual_hours: 2 },
-      { category: 'Other', estimated_hours: 10, actual_hours: 8 },
-    ],
-    userProductivity: [
-      { username: 'You', completed_tasks: 12, total_hours: 25, efficiency: 85 },
-      { username: 'Team Member 1', completed_tasks: 8, total_hours: 18, efficiency: 78 },
-      { username: 'Team Member 2', completed_tasks: 10, total_hours: 22, efficiency: 82 },
-    ],
-    dailyUtilization: [
-      { date: '2025-09-01', hours: 6.5 },
-      { date: '2025-09-02', hours: 7.2 },
-      { date: '2025-09-03', hours: 5.8 },
-      { date: '2025-09-04', hours: 8.1 },
-      { date: '2025-09-05', hours: 6.3 },
-      { date: '2025-09-06', hours: 7.5 },
-      { date: '2025-09-07', hours: 6.9 },
-    ]
-  };
-};
+// Remove mock data
+// const mockTasks = [ ... ];
+// const mockTimeLogs = [ ... ];
+// const generateAnalyticsData = () => { ... };
 
 const TaskAnalyticsDashboard = () => {
-  const [tasks, setTasks] = useState([]);
-  const [timeLogs, setTimeLogs] = useState([]);
+  const { fetchAllTasksForAnalytics, loading, error } = useTasks(); // Use the hook
+  const [allTasksAnalytics, setAllTasksAnalytics] = useState([]);
   const [timeRange, setTimeRange] = useState('7days');
-  const [loading, setLoading] = useState(true);
-  const [analyticsData, setAnalyticsData] = useState({
+  // The loading state is now managed by useTasks, so we can remove the local loading state
+  // const [loading, setLoading] = useState(true);
+  const [chartData, setChartData] = useState({
     completionRate: [],
     timeAllocation: [],
     userProductivity: [],
     dailyUtilization: []
   });
 
+  // 1. Initialize stats as a state variable with default values
+  // const [stats, setStats] = useState({
+  //   totalTasks: 0,
+  //   statusCount: { completed: 0, in_progress: 0, pending: 0 },
+  //   totalEstimated: 0,
+  //   totalActual: 0,
+  //   accuracy: "0.0",
+  //   overdueTasks: 0,
+  //   statusData: [],
+  //   categoryData: [],
+  //   efficiency: "0.0"
+  // });
+
   useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
+    const getAnalytics = async () => {
+      // The loading state is managed by useTasks
+      // setLoading(true);
       try {
-        // 1) tasks for the user
-        const tasksRes = await api.get('/tasks');
-        const tasksData = Array.isArray(tasksRes.data) ? tasksRes.data : [];
-        setTasks(tasksData);
-
-        // 2) timelogs via dayplans
-        const dayplansRes = await api.get('/plans/all');
-        const dayplans = Array.isArray(dayplansRes.data) ? dayplansRes.data : [];
-        const logs = dayplans.flatMap(dp =>
-          (dp.times || []).map(t => ({
-            ...t,
-            date: dp.date // ensure date is present for analytics
-          }))
-        );
-        setTimeLogs(logs);
-
-        // 3) build analytics data (replace with a real backend endpoint if you add one)
-        setAnalyticsData({
-          completionRate: [],   // optionally compute from tasksData
-          timeAllocation: [],   // optionally bucket tasks by category
-          userProductivity: [], // single-user app -> omit or map to your needs
-          dailyUtilization: []  // derive from logs by date
-        });
+        console.log("naking request here")
+        const data = await fetchAllTasksForAnalytics();
+        setAllTasksAnalytics(data);
       } catch (e) {
         console.error('Failed to fetch analytics data', e);
       } finally {
-        setLoading(false);
+        // setLoading(false);
       }
     };
-    fetchData();
-  }, [timeRange]);
+    getAnalytics();
+  }, []); // Add fetchAllTasksForAnalytics to dependency array
 
-  // Calculate statistics
+  useEffect(() => {
+    if (allTasksAnalytics.length > 0) {
+      const { completionRate, timeAllocation, userProductivity, dailyUtilization } = processAnalyticsData(allTasksAnalytics);
+      setChartData({
+        completionRate,
+        timeAllocation,
+        userProductivity,
+        dailyUtilization
+      });
+    }
+  }, [allTasksAnalytics]);
+
+  // 2. Add a new useEffect to recalculate stats when allTasksAnalytics changes
+  // useEffect(() => {
+  //   setStats(calculateStats());
+  // }, [allTasksAnalytics]);
+
+  const processAnalyticsData = (data) => {
+    const completionRateMap = {};
+    const timeAllocationMap = {};
+    const userProductivityMap = {};
+    const dailyUtilizationMap = {};
+
+    let totalCompletedTasks = 0;
+    let totalTasksCount = data.length;
+
+    data.forEach(item => {
+      const task = item.task;
+      const analytics = item.analytics;
+
+      // Completion Rate
+      const startDate = new Date(task.start_date).toISOString().split('T')[0];
+      if (!completionRateMap[startDate]) {
+        completionRateMap[startDate] = { total_tasks: 0, completed_tasks: 0, completion_rate: 0 };
+      }
+      completionRateMap[startDate].total_tasks++;
+      if (task.status === 'completed') {
+        completionRateMap[startDate].completed_tasks++;
+        totalCompletedTasks++;
+      }
+
+      // Time Allocation
+      const category = analytics.summary.key_insights[2].split(': ')[1]; // Extract category from summary
+      if (!timeAllocationMap[category]) {
+        timeAllocationMap[category] = { estimated_hours: 0, actual_hours: 0 };
+      }
+      timeAllocationMap[category].estimated_hours += task.estimated_hr;
+      timeAllocationMap[category].actual_hours += task.done_hr;
+
+      // User Productivity (simplified for single user)
+      if (!userProductivityMap['You']) {
+        userProductivityMap['You'] = { completed_tasks: 0, total_hours: 0, efficiency: 0 };
+      }
+      if (task.status === 'completed') {
+        userProductivityMap['You'].completed_tasks++;
+      }
+      userProductivityMap['You'].total_hours += task.done_hr;
+
+      // Daily Utilization
+      if (analytics.time_analysis && analytics.time_analysis.start_date) {
+        const taskDate = new Date(analytics.time_analysis.start_date).toISOString().split('T')[0];
+        if (!dailyUtilizationMap[taskDate]) {
+          dailyUtilizationMap[taskDate] = { hours: 0 };
+        }
+        dailyUtilizationMap[taskDate].hours += analytics.time_analysis.time_spent_hours;
+      }
+    });
+
+    // Finalize completion rate
+    const completionRate = Object.keys(completionRateMap).map(date => {
+      const entry = completionRateMap[date];
+      return {
+        date,
+        total_tasks: entry.total_tasks,
+        completed_tasks: entry.completed_tasks,
+        completion_rate: (entry.completed_tasks / entry.total_tasks) * 100
+      };
+    }).sort((a, b) => new Date(a.date) - new Date(b.date));
+
+    // Finalize time allocation
+    const timeAllocation = Object.keys(timeAllocationMap).map(category => ({
+      category,
+      estimated_hours: timeAllocationMap[category].estimated_hours,
+      actual_hours: timeAllocationMap[category].actual_hours
+    }));
+
+    // Finalize user productivity
+    const userProductivity = Object.keys(userProductivityMap).map(username => {
+      const entry = userProductivityMap[username];
+      const totalEstimatedForUser = data.reduce((sum, item) => item.task.owner_id === 1 ? sum + item.task.estimated_hr : sum, 0); // Assuming user_id 1 is "You"
+      return {
+        username,
+        completed_tasks: entry.completed_tasks,
+        total_hours: entry.total_hours,
+        efficiency: totalEstimatedForUser > 0 ? (entry.total_hours / totalEstimatedForUser) * 100 : 0
+      };
+    });
+
+    // Finalize daily utilization
+    const dailyUtilization = Object.keys(dailyUtilizationMap).map(date => ({
+      date,
+      hours: dailyUtilizationMap[date].hours
+    })).sort((a, b) => new Date(a.date) - new Date(b.date));
+
+    return { completionRate, timeAllocation, userProductivity, dailyUtilization };
+  };
+
   const calculateStats = () => {
-    if (tasks.length === 0) return {};
-    
+    if (allTasksAnalytics.length === 0) return {
+      totalTasks: 0,
+      statusCount: { completed: 0, in_progress: 0, pending: 0 },
+      totalEstimated: 0,
+      totalActual: 0,
+      accuracy: "0.0",
+      overdueTasks: 0,
+      statusData: [],
+      categoryData: [],
+      efficiency: "0.0"
+    };
+
     // Status distribution
     const statusCount = {
       completed: 0,
       in_progress: 0,
       pending: 0
     };
-    
-    // Estimated vs actual time
+
     let totalEstimated = 0;
     let totalActual = 0;
     let totalCompletedEstimated = 0;
     let totalCompletedActual = 0;
-    
-    // Categorize tasks
+
     const categories = {};
-    
-    tasks.forEach(task => {
-      // Count status
+
+    allTasksAnalytics.forEach(item => {
+      const task = item.task;
       statusCount[task.status] = (statusCount[task.status] || 0) + 1;
-      
-      // Sum estimated and actual hours
       totalEstimated += task.estimated_hr;
       totalActual += task.done_hr;
-      
+
       if (task.status === 'completed') {
         totalCompletedEstimated += task.estimated_hr;
         totalCompletedActual += task.done_hr;
       }
-      
-      // Categorize by description keywords
-      const desc = task.description.toLowerCase();
-      let category = 'Other';
-      
-      if (desc.includes('ml') || desc.includes('random forest')) category = 'Machine Learning';
-      else if (desc.includes('dsa') || desc.includes('array') || desc.includes('matrix') || 
-               desc.includes('dfs') || desc.includes('stack') || desc.includes('que')) category = 'Algorithms';
-      else if (desc.includes('task') || desc.includes('project')) category = 'Project Work';
-      else if (desc.includes('vm') || desc.includes('kali') || desc.includes('linux')) category = 'Infrastructure';
-      else if (desc.includes('plan')) category = 'Planning';
-      
+
+      const category = item.analytics.summary.key_insights[2].split(': ')[1];
       categories[category] = (categories[category] || 0) + 1;
     });
-    
-    // Accuracy for completed tasks
-    const accuracy = totalCompletedEstimated > 0 
-      ? (totalCompletedActual / totalCompletedEstimated) * 100 
+
+    const accuracy = totalCompletedEstimated > 0
+      ? (totalCompletedActual / totalCompletedEstimated) * 100
       : 0;
-    
-    // Overdue tasks (end_date is in the past but status is not completed)
+
     const now = new Date();
-    const overdueTasks = tasks.filter(task => {
-      if (task.status === 'completed') return false;
-      const endDate = new Date(task.end_date);
+    const overdueTasks = allTasksAnalytics.filter(item => {
+      if (item.task.status === 'completed') return false;
+      const endDate = new Date(item.task.end_date);
       return endDate < now;
     });
-    
-    // Format data for charts
+
     const statusData = Object.keys(statusCount).map(status => ({
       name: status.replace('_', ' ').toUpperCase(),
       value: statusCount[status],
       color: status === 'completed' ? '#10B981' : status === 'in_progress' ? '#3B82F6' : '#F59E0B'
     }));
-    
+
     const categoryData = Object.keys(categories).map(category => ({
       name: category,
       value: categories[category]
     }));
-    
+
     return {
-      totalTasks: tasks.length,
+      totalTasks: allTasksAnalytics.length,
       statusCount,
       totalEstimated,
       totalActual,
@@ -222,11 +257,12 @@ const TaskAnalyticsDashboard = () => {
       overdueTasks: overdueTasks.length,
       statusData,
       categoryData,
-      efficiency: totalEstimated > 0 ? ((totalActual / totalEstimated) * 100).toFixed(1) : 0
+      efficiency: totalEstimated > 0 ? ((totalActual / totalEstimated) * 100).toFixed(1) : "0.0"
     };
   };
 
-  const stats = calculateStats();
+  // Use useMemo to memoize the stats object
+  const stats = useMemo(() => calculateStats(), [allTasksAnalytics]);
 
   if (loading) {
     return (
@@ -391,11 +427,11 @@ const TaskAnalyticsDashboard = () => {
             </h2>
             <div className="h-80">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={analyticsData.completionRate}>
+                <LineChart data={chartData.completionRate}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="date" />
                   <YAxis />
-                  <Tooltip formatter={(value) => [`${value}%`, 'Completion Rate']} />
+                  <Tooltip formatter={(value) => [`${value.toFixed(1)}%`, 'Completion Rate']} />
                   <Line type="monotone" dataKey="completion_rate" stroke="#8884d8" strokeWidth={2} />
                 </LineChart>
               </ResponsiveContainer>
@@ -410,7 +446,7 @@ const TaskAnalyticsDashboard = () => {
             </h2>
             <div className="h-80">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={analyticsData.timeAllocation}>
+                <BarChart data={chartData.timeAllocation}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="category" />
                   <YAxis />
@@ -431,7 +467,7 @@ const TaskAnalyticsDashboard = () => {
             </h2>
             <div className="h-80">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={analyticsData.dailyUtilization}>
+                <BarChart data={chartData.dailyUtilization}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="date" />
                   <YAxis />
@@ -450,7 +486,7 @@ const TaskAnalyticsDashboard = () => {
             </h2>
             <div className="h-80">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={analyticsData.userProductivity}>
+                <BarChart data={chartData.userProductivity}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="username" />
                   <YAxis />
@@ -478,7 +514,8 @@ const TaskAnalyticsDashboard = () => {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {tasks.map(task => {
+                {allTasksAnalytics.map(item => {
+                  const task = item.task;
                   const dueDate = new Date(task.end_date);
                   const now = new Date();
                   const isOverdue = dueDate < now && task.status !== 'completed';

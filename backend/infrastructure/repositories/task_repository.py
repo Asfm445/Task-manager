@@ -32,19 +32,27 @@ class TaskRepository(AbstractTaskRepository):
         task = result.scalar_one_or_none()
         return orm_to_domain_task_output(task) if task else None
 
-    async def get_tasks(self, skip: int = 0, limit: int = 100) -> List[TaskOutput]:
+    async def get_tasks(self, skip: int = 0, limit: Optional[int] = None, fetch_all: bool = False) -> List[TaskOutput]:
+        query = select(Task)
+        if not fetch_all:
+            query = query.filter(Task.status!="completed")
+        
+        # Conditionally apply offset and limit
+        query = query.offset(skip)
+        if limit is not None:
+            query = query.limit(limit)
+
         result = await self.db.execute(
-            select(Task).filter(Task.status!="completed")
+            query
             .options(
                 selectinload(Task.assignees),
                 selectinload(Task.owner),
                 selectinload(Task.subtasks),
             )
-            .offset(skip)
-            .limit(limit)
         )
         tasks = result.scalars().all()
         return [orm_to_domain_task_output(task) for task in tasks]
+
 
     async def create_task(self, task: TaskCreateInput, owner_id: int) -> TaskOutput:
         db_task = domain_to_orm_task_create(task, owner_id)

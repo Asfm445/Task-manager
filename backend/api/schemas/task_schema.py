@@ -37,6 +37,11 @@ class Task(TaskBase):
     model_config = ConfigDict(from_attributes=True)
 
 
+class paginatedTask(BaseModel):
+    tasks: List[Task]
+    total: int
+
+
 class AssignUserInput(BaseModel):
     assignee_email: EmailStr
 

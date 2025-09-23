@@ -1,45 +1,92 @@
 import { Hourglass, PlusCircle } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTasks } from "../TaskContext";
 import Header from "../components/Header";
 import TaskForm from "../components/Tasks/TaskForm";
 import TaskList from "../components/Tasks/TaskList";
 
 export default function Tasks() {
-  const { createTask, updateTask, deleteTask, loading, error, searchTasks } = useTasks();
+  const {
+    tasks,
+    loading,
+    loadingMore,
+    error,
+    pagination,
+    fetchTasks,
+    loadMoreTasks,
+    resetTasks,
+  } = useTasks();
+
   const [showForm, setShowForm] = useState(false);
   const [editTask, setEditTask] = useState(null);
   const [message, setMessage] = useState("");
 
-  // search UI state
-  const [search, setSearch] = useState("");
-  const [isSearching, setIsSearching] = useState(false);
+  // search and filter UI state
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filterStatus, setFilterStatus] = useState("uncompleted");
 
-  useEffect(() => {
-    if (typeof searchTasks !== "function") return;
-    setIsSearching(true);
-    const id = setTimeout(async () => {
-      try {
-        await searchTasks(search.trim()); // backend-powered search via TaskProvider
-      } finally {
-        setIsSearching(false);
-      }
-    }, 350); // debounce
-    return () => clearTimeout(id);
-  }, [search, searchTasks]);
+  const observerRef = useRef(null);
+  const lastTaskRef = useCallback(
+    (node) => {
+      if (loadingMore) return;
+      if (observerRef.current) observerRef.current.disconnect();
 
-  if (loading) return (
-    <>
-      <Header></Header>
-      <div className="flex justify-center items-center py-16 text-blue-600">
-        <Hourglass className="animate-pulse mr-2" /> Loading tasks...
-      </div>
-    </>
+      observerRef.current = new IntersectionObserver((entries) => {
+        if (entries[0].isIntersecting && pagination.hasMore) {
+          loadMoreTasks();
+        }
+      });
+
+      if (node) observerRef.current.observe(node);
+    },
+    [loadingMore, pagination.hasMore, loadMoreTasks]
   );
+
+  // Fetch tasks when filterStatus or searchTerm changes
+  useEffect(() => {
+    const fetchData = async () => {
+      resetTasks();
+      await fetchTasks({ 
+        reset: true, 
+        currentFilterStatus: filterStatus, 
+        currentSearchTerm: searchTerm 
+      });
+    };
+
+    fetchData();
+  }, [filterStatus]); // Only depend on filterStatus
+
+  // Debounced search effect
+  useEffect(() => {
+    const id = setTimeout(() => {
+      const fetchData = async () => {
+        resetTasks();
+        await fetchTasks({ 
+          reset: true, 
+          currentFilterStatus: filterStatus, 
+          currentSearchTerm: searchTerm 
+        });
+      };
+
+      fetchData();
+    }, 350);
+
+    return () => clearTimeout(id);
+  }, [searchTerm]); // Only depend on searchTerm
+
+  if (loading && !loadingMore)
+    return (
+      <>
+        <Header></Header>
+        <div className="flex justify-center items-center py-16 text-blue-600">
+          <Hourglass className="animate-pulse mr-2" /> Loading tasks...
+        </div>
+      </>
+    );
 
   const handleCreate = async (data) => {
     try {
-      await createTask(data);
+      await fetchTasks.createTask(data);
       setMessage("Task created successfully");
       setShowForm(false);
       setTimeout(() => setMessage(""), 2000);
@@ -48,7 +95,7 @@ export default function Tasks() {
 
   const handleUpdate = async (data) => {
     try {
-      await updateTask(editTask.id, data);
+      await fetchTasks.updateTask(editTask.id, data);
       setMessage("Task updated successfully");
       setEditTask(null);
       setTimeout(() => setMessage(""), 2000);
@@ -57,13 +104,13 @@ export default function Tasks() {
 
   const handleDelete = async (id) => {
     try {
-      await deleteTask(id);
+      await fetchTasks.deleteTask(id);
       setMessage("Task deleted");
       setTimeout(() => setMessage(""), 1500);
     } catch (_) {}
   };
 
-  const clearSearch = () => setSearch("");
+  const clearSearch = () => setSearchTerm("");
 
   return (
     <>
@@ -87,13 +134,13 @@ export default function Tasks() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="m21 21-4.3-4.3m0 0A7.5 7.5 0 1 0 5 5a7.5 7.5 0 0 0 11.7 11.7Z" />
               </svg>
               <input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder="Search tasks..."
                 className="w-full outline-none text-sm"
               />
-              {isSearching && <span className="ml-2 text-xs text-blue-600">Searching...</span>}
-              {search && (
+              {loadingMore && <span className="ml-2 text-xs text-blue-600">Searching...</span>}
+              {searchTerm && (
                 <button
                   onClick={clearSearch}
                   className="ml-2 text-gray-400 hover:text-gray-600"
@@ -120,13 +167,13 @@ export default function Tasks() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="m21 21-4.3-4.3m0 0A7.5 7.5 0 1 0 5 5a7.5 7.5 0 0 0 11.7 11.7Z" />
             </svg>
             <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Search tasks..."
               className="w-full outline-none text-sm"
             />
-            {isSearching && <span className="ml-2 text-xs text-blue-600">...</span>}
-            {search && (
+            {loadingMore && <span className="ml-2 text-xs text-blue-600">...</span>}
+            {searchTerm && (
               <button
                 onClick={clearSearch}
                 className="ml-2 text-gray-400 hover:text-gray-600"
@@ -136,6 +183,40 @@ export default function Tasks() {
               </button>
             )}
           </div>
+        </div>
+
+        {/* Status filters */}
+        <div className="flex gap-2 mb-4">
+          <button
+            onClick={() => setFilterStatus("uncompleted")}
+            className={`px-3 py-1 rounded-lg text-sm font-medium ${
+              filterStatus === "uncompleted"
+                ? "bg-blue-600 text-white"
+                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+            }`}
+          >
+            Uncompleted
+          </button>
+          <button
+            onClick={() => setFilterStatus("completed")}
+            className={`px-3 py-1 rounded-lg text-sm font-medium ${
+              filterStatus === "completed"
+                ? "bg-blue-600 text-white"
+                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+            }`}
+          >
+            Completed
+          </button>
+          <button
+            onClick={() => setFilterStatus("all")}
+            className={`px-3 py-1 rounded-lg text-sm font-medium ${
+              filterStatus === "all"
+                ? "bg-blue-600 text-white"
+                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+            }`}
+          >
+            All
+          </button>
         </div>
 
         {/* Messages */}
@@ -165,10 +246,22 @@ export default function Tasks() {
         {/* Task list in a card */}
         <div className="bg-white rounded-xl border border-gray-200 shadow">
           <div className="px-4 py-3 border-b border-gray-100">
-            <h2 className="text-lg font-semibold text-gray-800">Your Tasks</h2>
+            <h2 className="text-lg font-semibold text-gray-800">Your Tasks ({pagination.total})</h2>
           </div>
           <div className="p-2 md:p-3">
-            <TaskList onEdit={setEditTask} onDelete={handleDelete} />
+            <TaskList onEdit={setEditTask} onDelete={handleDelete} tasks={tasks} />
+            {loadingMore && (
+              <div className="flex justify-center items-center py-4 text-blue-600">
+                <Hourglass className="animate-pulse mr-2" /> Loading more tasks...
+              </div>
+            )}
+            <div ref={lastTaskRef} style={{ height: "1px" }} /> {/* Observer target */}
+            {!pagination.hasMore && !loadingMore && tasks.length > 0 && (
+              <p className="text-center text-gray-500 py-4">No more tasks to load.</p>
+            )}
+            {tasks.length === 0 && !loading && !loadingMore && (
+              <p className="text-gray-500 text-center py-4">No tasks found.</p>
+            )}
           </div>
         </div>
       </div>

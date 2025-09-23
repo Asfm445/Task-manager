@@ -8,6 +8,7 @@ from api.schemas.task_schema import (
     TaskCreate,
     TaskProgress,
     TaskUpdate,
+    paginatedTask,
 )
 from api.utilities.handle_service_result import handle_service_result
 from fastapi import APIRouter, Depends
@@ -27,16 +28,18 @@ async def create_task(
     return result
 
 
-@router.get("/", response_model=List[Task])
+@router.get("/", response_model=paginatedTask)
 @handle_service_result
 async def read_tasks(
     skip: int = 0,
     limit: int = 10,
+    completed: Optional[bool]=False,
+    uncompleted: Optional[bool]=False,
     search_name: Optional[str] = None,
     service=Depends(get_task_service),
     current_user=Depends(get_current_user),
 ):
-    result = await service.get_tasks(current_user=current_user,search_name=search_name, skip=skip, limit=limit)
+    result = await service.get_tasks(current_user=current_user,search_name=search_name, skip=skip, limit=limit, uncompleted=uncompleted, completed=completed)
     return result
 
 
@@ -44,6 +47,8 @@ async def read_tasks(
 @handle_service_result
 async def read_task(
     task_id: int,
+    completed: Optional[bool]=False,
+    uncompleted: Optional[bool]=False,
     service=Depends(get_task_service),
     current_user=Depends(get_current_user),
 ):
@@ -139,10 +144,11 @@ async def task_analytics(
     """
     return await service.get_task_analytics(task_id, current_user)
 
-@router.get("/", response_model=List[Task])  # adjust schema
+@router.get("/all/task/analytics")
 @handle_service_result
-async def list_tasks(
+async def get_all_tasks_analytics(
     service=Depends(get_task_service),
     current_user=Depends(get_current_user),
 ):
-    return await service.list_tasks(current_user)
+    print("+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++here the problem++++++++")
+    return await service.get_all_tasks_analytics(current_user)

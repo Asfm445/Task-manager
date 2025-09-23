@@ -70,6 +70,7 @@ async def get_current_user(
     token: str = Depends(oauth2_scheme),
     user_usecase: UserUsecase = Depends(get_user_usecase),
 ) -> TokenClaimUser:
+    print("+++++++++++++++++++++++++++++++++++++find issue+++++++++++++++++++++++")
     try:
         payload, err = user_usecase.jwt_service.decode_token(token)
         if not payload:
@@ -86,7 +87,8 @@ async def get_current_user(
         raise HTTPException(
             status_code=401, detail="Invalid authentication credentials"
         )
-
+    print("++++++++++++++++++++++++++++++++++++not here++++++++++++++++++++++++++")
+    print(user_id, email, username)
     return TokenClaimUser(user_id, email, username, role)
 
 

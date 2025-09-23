@@ -1,8 +1,8 @@
 import { useTasks } from "../../TaskContext";
 import TaskItem from "./TaskItem";
 
-export default function TaskList({ onEdit }) {
-  const { tasks, updateTask, deleteTask, stopTask, startTask, assignUser } = useTasks();
+export default function TaskList({ onEdit, onDelete, tasks }) {
+  const { updateTask, deleteTask, stopTask, startTask, assignUser } = useTasks();
 
   if (!tasks.length) return <p className="text-gray-500">No tasks found</p>;
   return (

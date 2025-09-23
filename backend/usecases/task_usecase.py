@@ -416,14 +416,19 @@ class TaskService:
             ]
         }
 
-    async def get_tasks(self, current_user,search_name=None, skip: int = 0, limit: int = 100):
+    async def get_tasks(self, current_user,search_name=None, skip: int = 0, limit: int = 100, uncompleted=False, completed=False):
         result = []
         async with self.uow:
             try:
                 if search_name:
                     tasks = await self.uow.tasks.get_tasks_by_name(search_name, skip=skip, limit=limit)
                 else:
-                    tasks = await self.uow.tasks.get_tasks(skip=skip, limit=limit)
+                    tasks = await self.uow.tasks.get_tasks(skip=skip, limit=limit, fetch_all=True)
+                if uncompleted:
+                    tasks=[task for task in tasks if task.status!="completed"]
+                if completed:
+                    tasks=[task for task in tasks if task.status=="completed"]
+                num=len(tasks)
                 tasks.sort(key=lambda x: x.end_date)
 
                 for task in tasks:
@@ -435,8 +440,37 @@ class TaskService:
                 raise
             else:
                 await self.uow.commit()
-            return result
+            return {"tasks":result,"total":num}
 
+
+    async def get_all_tasks_analytics(self, current_user) -> List[Dict[str, Any]]:
+        analytics_results = []
+        print(current_user)
+        async with self.uow:
+            try:
+                all_tasks = await self.uow.tasks.get_tasks(current_user.id, fetch_all=True)
+                for task in all_tasks:
+                    progress_history = await self.uow.tasks.get_progress(task.id, skip=0, limit=1000)
+                    stop_history = []
+                    if task.is_repititive:
+                        get_stop_progress = getattr(self.uow.tasks, "get_stop_progress", None)
+                        if callable(get_stop_progress):
+                            stop_history = await self.uow.tasks.get_stop_progress(task.id)
+                        else:
+                            stop_history = [progress for progress in progress_history if getattr(progress, "status", None) == "is_stopped"]
+
+                    analytics = await self._calculate_task_analytics(task, progress_history, stop_history)
+                    analytics_results.append({
+                        "task": task,  # Convert TaskOutput to dictionary
+                        "analytics": analytics
+                    })
+            except Exception:
+                await self.uow.rollback()
+                raise
+            else:
+                await self.uow.commit()
+            print(analytics_results)
+            return analytics_results
 
     async def delete_task(self, task_id: int, current_user):
         async with self.uow:

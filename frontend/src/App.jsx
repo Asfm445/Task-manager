@@ -25,7 +25,7 @@ export default function App() {
         <Route path="/tasks/:id" element={<ProtectedRoute><TaskDetail /></ProtectedRoute> } />
         <Route path="/" element={<Navigate to="/plans" />} />
         <Route path="/date-analytics" element={<TimeLogAnalytics></TimeLogAnalytics>} />
-        <Route path="/task-analytics" element={<TaskAnalyticsDashboard></TaskAnalyticsDashboard>} />
+        <Route path="/task-analytics" element={ <TaskProvider> <TaskAnalyticsDashboard></TaskAnalyticsDashboard></TaskProvider>} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/auth/reset-password" element={<ResetPassword />} />
