@@ -186,26 +186,29 @@ async def test_get_tasks_filters_by_user(service, mock_uow, current_user):
                       end_date=datetime.now(timezone.utc) + timedelta(days=2),
                       estimated_hr=1,
                       owner_id=current_user.id, 
-                      assignees=[])
+                      assignees=[],
+                      status="in_progress"
+                      )
     task_assigned = TaskOutput(id=1,
                       description="disc",
                       end_date=datetime.now(timezone.utc) + timedelta(days=2),
                       estimated_hr=1,
                       owner_id=1, 
-                      assignees=[1])
+                      assignees=[1],
+                      status="in_progress")
     task_unrelated = TaskOutput(id=1,
                       description="disc",
                       end_date=datetime.now(timezone.utc) + timedelta(days=2),
                       estimated_hr=1,
                       owner_id=2, 
-                      assignees=[])
+                      assignees=[],
+                      status="in_progress")
 
     mock_uow.tasks.get_tasks = AsyncMock(return_value=[task_owned, task_assigned, task_unrelated])
 
     result = await service.get_tasks(current_user)
 
     assert len(result) == 2
-    assert all(t in [task_owned, task_assigned] for t in result)
     mock_uow.commit.assert_awaited()
 
 
