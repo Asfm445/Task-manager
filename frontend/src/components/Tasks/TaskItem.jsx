@@ -1,202 +1,210 @@
-import { CheckCircle, Clock, Edit2, Hourglass, PauseCircle, PlayCircle, Trash2, UserPlus } from "lucide-react";
+import {
+  Calendar, CheckCircle2, Clock, Edit3, MoreVertical,
+  Pause, Play, Trash2, UserPlus, StopCircle, ArrowRight
+} from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router-dom";
+import { useTaskMutations } from "../../hooks/useTasksData";
 
-const statusStyles = {
-  completed: "bg-gradient-to-r from-green-400 to-green-200 text-green-900 shadow-sm",
-  in_progress: "bg-gradient-to-r from-yellow-300 to-yellow-100 text-yellow-900 shadow-sm",
-  pending: "bg-gradient-to-r from-gray-300 to-gray-100 text-gray-800 shadow-sm",
-  stopped: "bg-gradient-to-r from-red-300 to-red-100 text-red-900 shadow-sm",
+const statusConfig = {
+  completed: {
+    bg: "bg-green-100",
+    text: "text-green-700",
+    border: "border-green-200",
+    icon: CheckCircle2,
+    label: "Completed"
+  },
+  in_progress: {
+    bg: "bg-blue-100",
+    text: "text-blue-700",
+    border: "border-blue-200",
+    icon: Clock,
+    label: "In Progress"
+  },
+  pending: {
+    bg: "bg-gray-100",
+    text: "text-gray-600",
+    border: "border-gray-200",
+    icon: Clock, // Keeping clock for pending
+    label: "Pending"
+  },
+  stopped: {
+    bg: "bg-red-100",
+    text: "text-red-700",
+    border: "border-red-200",
+    icon: StopCircle,
+    label: "Stopped"
+  },
 };
 
-const statusIcons = {
-  completed: <CheckCircle className="inline w-4 h-4 mr-1 text-green-600" />,
-  in_progress: <Hourglass className="inline w-4 h-4 mr-1 text-yellow-600 animate-spin" />,
-  pending: <Clock className="inline w-4 h-4 mr-1 text-gray-600" />,
-  stopped: <PauseCircle className="inline w-4 h-4 mr-1 text-red-600" />,
-};
-
-export default function TaskItem({ task, onEdit, onDelete, stopTask, startTask, assignUser }) {
-  const [actionLoading, setActionLoading] = useState(false);
+export default function TaskItem({ task, onEdit }) {
+  const { toggleTask, deleteTask, assignUser } = useTaskMutations();
   const [email, setEmail] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [isAssigning, setIsAssigning] = useState(false);
   const [showAssignForm, setShowAssignForm] = useState(false);
+  const [isActionLoading, setIsActionLoading] = useState(false);
 
-  const handleStop = async () => {
-    setActionLoading(true);
+  const status = statusConfig[task.status] || statusConfig.pending;
+  const StatusIcon = status.icon;
+
+  const handleToggle = async (stop) => {
+    setIsActionLoading(true);
     try {
-      await stopTask(task.id);
+      await toggleTask({ id: task.id, stop });
     } catch (err) {
-      console.error("Failed to stop task:", err);
+      console.error("Failed to toggle task:", err);
     } finally {
-      setActionLoading(false);
+      setIsActionLoading(false);
     }
   };
 
-  const handleStart = async () => {
-    setActionLoading(true);
+  const handleDelete = async () => {
+    if (!confirm("Are you sure you want to delete this task?")) return;
+    setIsActionLoading(true);
     try {
-      await startTask(task.id);
+      await deleteTask(task.id);
     } catch (err) {
-      console.error("Failed to start task:", err);
+      console.error("Failed to delete task:", err);
     } finally {
-      setActionLoading(false);
+      setIsActionLoading(false);
     }
   };
 
   const handleAssign = async (e) => {
     e.preventDefault();
-    setLoading(true);
+    setIsAssigning(true);
     try {
-      await assignUser(task.id, email);
-      alert("User assigned!");
+      await assignUser({ taskId: task.id, email });
       setEmail("");
       setShowAssignForm(false);
     } catch (err) {
       alert("Failed to assign user.");
     } finally {
-      setLoading(false);
+      setIsAssigning(false);
     }
   };
 
+  const formatDate = (date) => new Date(date).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+
   return (
-    <div className="bg-white p-6 rounded-2xl shadow-lg border border-gray-100 hover:shadow-xl hover:scale-[1.02] transition-all duration-200">
-      <div className="flex justify-between items-center mb-3">
-        <h2 className="font-bold text-xl text-gray-900 tracking-tight">
-          Task <span className="text-blue-600">#{task.id}</span>
-        </h2>
-        <span
-          className={`flex items-center gap-1 px-4 py-1 rounded-full text-sm font-semibold ${statusStyles[task.status]} transition-all`}
-        >
-          {statusIcons[task.status]}
-          <span className="capitalize">{task.status.replace("_", " ")}</span>
-        </span>
-      </div>
-      <p className="text-gray-700 mb-4 text-base">{task.description}</p>
+    <div className="group relative bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md hover:border-blue-200 transition-all duration-300 flex flex-col h-full">
+      {/* Card Header & Status */}
+      <div className="p-5 flex-1">
+        <div className="flex justify-between items-start mb-3">
+          <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border ${status.bg} ${status.text} ${status.border}`}>
+            <StatusIcon className="w-3.5 h-3.5" />
+            {status.label}
+          </div>
+          {task.is_repititive && (
+            <span className="text-xs font-medium text-purple-600 bg-purple-50 px-2 py-1 rounded-md border border-purple-100">
+              Repetitive
+            </span>
+          )}
+        </div>
 
-      <div className="text-sm text-gray-600 mb-4 grid grid-cols-2 sm:grid-cols-3 gap-y-2 gap-x-4">
-        {task.start_date && (
-          <span>
-            <span className="font-medium text-gray-800">Start:</span>{" "}
-            {new Date(task.start_date).toLocaleString(undefined, {
-              year: "numeric",
-              month: "short",
-              day: "numeric",
-              hour: "2-digit",
-              minute: "2-digit",
-            })}
-          </span>
-        )}
-        {task.end_date && (
-          <span>
-            <span className="font-medium text-gray-800">Due:</span>{" "}
-            {new Date(task.end_date).toLocaleString(undefined, {
-              year: "numeric",
-              month: "short",
-              day: "numeric",
-              hour: "2-digit",
-              minute: "2-digit",
-            })}
-          </span>
-        )}
-        {task.estimated_hr !== undefined && (
-          <span>
-            <span className="font-medium text-gray-800">Est:</span> {task.estimated_hr}h
-          </span>
-        )}
-        {task.done_hr !== undefined && (
-          <span>
-            <span className="font-medium text-gray-800">Done:</span> {task.done_hr}h
-          </span>
-        )}
-        <span>
-          <span className="font-medium text-gray-800">Repetitive:</span>{" "}
-          {task.is_repititive ? "Yes" : "No"}
-        </span>
-        {task.main_task_id && (
-          <span>
-            <span className="font-medium text-gray-800">Main Task:</span> #{task.main_task_id}
-          </span>
-        )}
-      </div>
-
-      <div className="flex flex-wrap gap-3 justify-end mt-2">
-        <Link
-          to={`/tasks/${task.id}`}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-semibold flex items-center gap-2 transition-colors shadow-sm text-sm md:text-base"
-          title="View Task"
-        >
-          View
+        <Link to={`/tasks/${task.id}`} className="block group-hover:text-blue-600 transition-colors">
+          <h3 className="font-bold text-gray-900 text-lg mb-2 line-clamp-2 leading-tight">
+            {task.description}
+          </h3>
         </Link>
-        <button
-          onClick={() => onEdit(task)}
-          className="bg-yellow-400 hover:bg-yellow-500 text-white px-4 py-2 rounded-lg font-semibold flex items-center gap-2 transition-colors shadow-sm text-sm md:text-base"
-          title="Edit Task"
-        >
-          <Edit2 size={16} /> Edit
-        </button>
-        <button
-          onClick={() => onDelete(task.id)}
-          className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg font-semibold flex items-center gap-2 transition-colors shadow-sm text-sm md:text-base"
-          title="Delete Task"
-        >
-          <Trash2 size={16} /> Delete
-        </button>
-        <button
-          onClick={() => setShowAssignForm((v) => !v)}
-          className="bg-indigo-500 hover:bg-indigo-600 text-white px-4 py-2 rounded-lg font-semibold flex items-center gap-2 transition-colors shadow-sm text-sm md:text-base"
-          title="Assign User"
-        >
-          <UserPlus size={16} /> Assign User
-        </button>
+
+        <div className="text-sm text-gray-500 mb-4 font-mono">#{task.id}</div>
+
+        {/* Mini Grid Metrics */}
+        <div className="grid grid-cols-2 gap-3 text-sm text-gray-600 mb-4">
+          <div className="bg-gray-50 p-2 rounded-lg">
+            <span className="block text-xs text-gray-400 font-medium uppercase tracking-wider mb-0.5">Est.</span>
+            <span className="font-semibold text-gray-900">{task.estimated_hr}h</span>
+          </div>
+          <div className={`p-2 rounded-lg ${task.done_hr > task.estimated_hr ? "bg-red-50 text-red-700" : "bg-blue-50 text-blue-700"}`}>
+            <span className="block text-xs opacity-70 font-medium uppercase tracking-wider mb-0.5">Done</span>
+            <span className="font-semibold">{task.done_hr}h</span>
+          </div>
+          {task.start_date && (
+            <div className="bg-gray-50 p-2 rounded-lg col-span-2 flex justify-between items-center">
+              <span className="text-xs text-gray-400 font-medium uppercase tracking-wider">Timeline</span>
+              <span className="font-medium text-gray-700">
+                {formatDate(task.start_date)}
+                {task.end_date && <span className="text-gray-400 mx-1">→</span>}
+                {task.end_date && formatDate(task.end_date)}
+              </span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Action Footer */}
+      <div className="p-4 border-t border-gray-100 bg-gray-50/50 rounded-b-xl flex items-center justify-between gap-2">
+        <div className="flex gap-1">
+          <Link
+            to={`/tasks/${task.id}`}
+            className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+            title="View Details"
+          >
+            <ArrowRight className="w-4 h-4" />
+          </Link>
+
+          <button
+            onClick={() => onEdit(task)}
+            className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+            title="Edit Task"
+          >
+            <Edit3 className="w-4 h-4" />
+          </button>
+
+          <button
+            onClick={() => setShowAssignForm(!showAssignForm)}
+            className={`p-2 rounded-lg transition-colors ${showAssignForm ? "bg-indigo-50 text-indigo-600" : "text-gray-500 hover:text-indigo-600 hover:bg-indigo-50"}`}
+            title="Assign User"
+          >
+            <UserPlus className="w-4 h-4" />
+          </button>
+
+          <button
+            onClick={handleDelete}
+            disabled={isActionLoading}
+            className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+            title="Delete Task"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+        </div>
+
         {task.is_repititive && (
-          !task.is_stopped ? (
-            <button
-              onClick={handleStop}
-              className="bg-red-400 hover:bg-red-500 text-white px-4 py-2 rounded-lg font-semibold flex items-center gap-2 transition-colors shadow-sm text-sm md:text-base"
-              title="Stop Task"
-              disabled={actionLoading}
-            >
-              <PauseCircle size={16} /> {actionLoading ? "Stopping..." : "Stop"}
-            </button>
-          ) : (
-            <button
-              onClick={handleStart}
-              className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg font-semibold flex items-center gap-2 transition-colors shadow-sm text-sm md:text-base"
-              title="Start Task"
-              disabled={actionLoading}
-            >
-              <PlayCircle size={16} /> {actionLoading ? "Starting..." : "Start"}
-            </button>
-          )
+          <button
+            onClick={() => handleToggle(!task.is_stopped)}
+            disabled={isActionLoading}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-sm ${task.is_stopped
+              ? "bg-green-600 hover:bg-green-700 text-white"
+              : "bg-white text-gray-700 border border-gray-200 hover:bg-gray-50"
+              }`}
+          >
+            {task.is_stopped ? <Play className="w-3.5 h-3.5 fill-current" /> : <Pause className="w-3.5 h-3.5 fill-current" />}
+            {task.is_stopped ? "RESUME" : "STOP"}
+          </button>
         )}
       </div>
 
+      {/* Assign Popover (Inline) */}
       {showAssignForm && (
-        <form onSubmit={handleAssign} className="flex gap-2 items-center mt-4">
-          <input
-            type="email"
-            value={email}
-            onChange={e => setEmail(e.target.value)}
-            placeholder="User email"
-            required
-            className="px-3 py-2 border rounded-lg"
-          />
-          <button
-            type="submit"
-            disabled={loading}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold"
-          >
-            {loading ? "Assigning..." : "Assign"}
-          </button>
-          <button
-            type="button"
-            onClick={() => setShowAssignForm(false)}
-            className="bg-gray-200 text-gray-800 px-3 py-2 rounded-lg font-semibold"
-          >
-            Cancel
-          </button>
-        </form>
+        <div className="absolute bottom-16 left-4 right-4 bg-white p-3 rounded-xl shadow-xl border border-gray-200 z-10 animate-in fade-in slide-in-from-bottom-2">
+          <form onSubmit={handleAssign} className="flex gap-2">
+            <input
+              type="email"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              placeholder="Assignee email..."
+              autoFocus
+              className="flex-1 px-3 py-1.5 text-sm border border-gray-200 rounded-lg outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+            />
+            <button
+              disabled={isAssigning}
+              className="bg-blue-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-blue-700 transition-colors"
+            >
+              Add
+            </button>
+          </form>
+        </div>
       )}
     </div>
   );

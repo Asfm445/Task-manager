@@ -13,23 +13,19 @@ class TokenRepository(ITokenRepository):
     async def FindByID(self, id: str):
         result = await self.db.execute(
             select(Token)
-            .options(selectinload(Token.user))  # preloads user relationship
             .where(Token.id == id)
         )
         dbtoken = result.scalar_one_or_none()  # returns single object or None
         if not dbtoken:
             return None
 
-        return [
-            DMToken(
+        return DMToken(
                 dbtoken.id,
                 dbtoken.token,
                 dbtoken.user_id,
                 dbtoken.created_at,
                 dbtoken.expired_at,
-            ),
-            dbtoken.user,  # already loaded
-        ]
+            )
 
     async def Create(self, token: dict):
         db_token = Token(**token)

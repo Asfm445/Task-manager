@@ -3,7 +3,7 @@ from typing import Any, Dict, List
 
 from domain.exceptions import BadRequestError, NotFoundError
 from domain.interfaces.iuow import IUnitOfWork
-from domain.models.task_model import TaskCreateInput, TaskOutput, TaskProgressDomain
+from domain.models.task_model import TaskCreateInput, TaskOutput, TaskProgressDomain, SubTaskOutput
 
 
 class TaskService:
@@ -75,8 +75,9 @@ class TaskService:
                 main_task = await self.uow.tasks.get_task(task.main_task_id)
                 if not main_task:
                     raise NotFoundError("Main task not found")
-                if main_task.owner_id != current_user.id and current_user.id not in main_task.assignees:
-                    raise PermissionError("Cannot create subtask for another user's task")
+                main_task_assignees= await self.uow.tasks.get_assignees_of_task(task.main_task_id)
+                if main_task.owner_id != current_user.id and current_user.id not in main_task_assignees:
+                    raise PermissionError("You are not authorized to create subtask for another user's task")
 
             if not task.start_date:
                 task.start_date = datetime.now(timezone.utc)
@@ -95,382 +96,39 @@ class TaskService:
         task = await self.uow.tasks.get_task(task_id)
         if not task:
             raise NotFoundError("Task not found")
+        
+        task_assginess=await self.uow.tasks.get_assignees_of_task_email(task.id)
+        sub_tasks=await self.uow.tasks.get_desription_and_id_of_subtasks(task.id)
+        task.subtasks = [SubTaskOutput(id=id, description=description) for description, id in sub_tasks]
+        task.assignees = task_assginess
 
-        if task.owner_id == current_user.id or current_user.id in task.assignees:
+        if task.owner_id == current_user.id or current_user.email in task_assginess:
+            async with self.uow:
+                try:
+                    await self._handle_repetitive_task(task)
+                except Exception:
+                    await self.uow.rollback()
+                    raise
+                else:
+                    await self.uow.commit()
             return task
 
         raise PermissionError("You don't have access to this task")
 
-    async def get_task_analytics(self, task_id: int, current_user) -> Dict[str, Any]:
-    # Get the task with permission check
-        task = await self.get_task(task_id, current_user)
-        
-        # Get progress history
-        progress_history = await self.uow.tasks.get_progress(task_id, skip=0, limit=1000)
-        
-        # Get stop history for repetitive tasks
-        stop_history = []
-        if task.is_repititive:
-            # Use get_stop_progress if available (for test compatibility)
-            get_stop_progress = getattr(self.uow.tasks, "get_stop_progress", None)
-            if callable(get_stop_progress):
-                stop_history = await self.uow.tasks.get_stop_progress(task_id)
-            else:
-                stop_history = await self.uow.tasks.get_progress(task_id)
-                stop_history = [progress for progress in stop_history if getattr(progress, "status", None) == "is_stopped"]
-        
-        # Calculate analytics
-        analytics = await self._calculate_task_analytics(task, progress_history, stop_history)
-        
-        return {
-            "task": task,
-            "analytics": analytics
-        }
-
-    async def _calculate_task_analytics(self, task: TaskOutput, progress_history: List[TaskProgressDomain], stop_history: List) -> Dict[str, Any]:
-        """Calculate comprehensive task analytics"""
-        
-        # Basic completion metrics
-        completion_rate = (task.done_hr / task.estimated_hr * 100) if task.estimated_hr > 0 else 0
-        remaining_hours = max(0, task.estimated_hr - task.done_hr)
-        
-        # Time efficiency
-        time_efficiency = self._calculate_time_efficiency(task, progress_history)
-        
-        # Progress trends
-        progress_trends = self._analyze_progress_trends(progress_history)
-        
-        # Performance indicators
-        performance_indicators = self._calculate_performance_indicators(task, progress_history)
-        
-        # Status analysis
-        status_analysis = self._analyze_task_status(task, progress_history, stop_history)
-        
-        # Time analysis
-        time_analysis = self._analyze_time_metrics(task, progress_history)
-        
-        return {
-            "completion_metrics": {
-                "completion_rate": round(completion_rate, 2),
-                "remaining_hours": round(remaining_hours, 2),
-                "done_hours": round(task.done_hr, 2),
-                "estimated_hours": round(task.estimated_hr, 2),
-                "progress_percentage": min(100, completion_rate)
-            },
-            "time_efficiency": time_efficiency,
-            "progress_trends": progress_trends,
-            "performance_indicators": performance_indicators,
-            "status_analysis": status_analysis,
-            "time_analysis": time_analysis,
-            "summary": self._generate_analytics_summary(task, completion_rate, time_efficiency, time_analysis)
-        }
-
-    def _calculate_time_efficiency(self, task: TaskOutput, progress_history: List[TaskProgressDomain]) -> Dict[str, Any]:
-        """Calculate time efficiency metrics"""
-        if not progress_history:
-            return {
-                "efficiency_score": 0,
-                "avg_hours_per_cycle": 0,
-                "cycles_completed": 0,
-                "total_cycles": 0
-            }
-        
-        total_cycles = len(progress_history)
-        total_hours_worked = sum(p.done_hr for p in progress_history)
-        avg_hours_per_cycle = total_hours_worked / total_cycles if total_cycles > 0 else 0
-        
-        # Efficiency score based on consistency
-        efficiency_score = min(100, (task.estimated_hr / avg_hours_per_cycle * 100)) if avg_hours_per_cycle > 0 else 0
-        
-        return {
-            "efficiency_score": round(efficiency_score, 2),
-            "avg_hours_per_cycle": round(avg_hours_per_cycle, 2),
-            "cycles_completed": total_cycles,
-            "total_cycles": total_cycles,
-            "total_hours_worked": round(total_hours_worked, 2)
-        }
-
-    def _analyze_progress_trends(self, progress_history: List[TaskProgressDomain]) -> Dict[str, Any]:
-        """Analyze progress trends over time"""
-        if not progress_history:
-            return {
-                "trend": "no_data",
-                "consistency_score": 0,
-                "improvement_rate": 0,
-                "cycles_analyzed": 0
-            }
-        
-        # Sort by start date
-        sorted_progress = sorted(progress_history, key=lambda x: x.start_date)
-        
-        # Calculate consistency
-        hours_per_cycle = [p.done_hr for p in sorted_progress]
-        if len(hours_per_cycle) > 1:
-            variance = sum((h - sum(hours_per_cycle)/len(hours_per_cycle))**2 for h in hours_per_cycle) / len(hours_per_cycle)
-            # Increase penalty factor to be more sensitive to high variance
-            consistency_score = max(0, 100 - (variance * 20))  # Lower variance = higher consistency
-        else:
-            consistency_score = 100
-        
-        # Calculate improvement rate
-        if len(hours_per_cycle) >= 2:
-            first_half = hours_per_cycle[:len(hours_per_cycle)//2]
-            second_half = hours_per_cycle[len(hours_per_cycle)//2:]
-            avg_first = sum(first_half) / len(first_half)
-            avg_second = sum(second_half) / len(second_half)
-            improvement_rate = ((avg_second - avg_first) / avg_first * 100) if avg_first > 0 else 0
-        else:
-            improvement_rate = 0
-        
-        # Determine trend
-        if len(hours_per_cycle) >= 3:
-            recent_avg = sum(hours_per_cycle[-3:]) / 3
-            earlier_avg = sum(hours_per_cycle[:3]) / 3
-            if recent_avg > earlier_avg * 1.1:
-                trend = "improving"
-            elif recent_avg < earlier_avg * 0.9:
-                trend = "declining"
-            else:
-                trend = "stable"
-        else:
-            trend = "insufficient_data"
-        
-        return {
-            "trend": trend,
-            "consistency_score": round(consistency_score, 2),
-            "improvement_rate": round(improvement_rate, 2),
-            "cycles_analyzed": len(hours_per_cycle),
-            "recent_performance": hours_per_cycle[-2:] if len(hours_per_cycle) >= 2 else hours_per_cycle
-        }
-
-    def _calculate_performance_indicators(self, task: TaskOutput, progress_history: List[TaskProgressDomain]) -> Dict[str, Any]:
-        """Calculate performance indicators"""
-        if not progress_history:
-            return {
-                "productivity_score": 0,
-                "reliability_score": 0,
-                "quality_score": 0,
-                "overall_performance": 0
-            }
-        
-        # Productivity: How much work done vs estimated
-        total_estimated = sum(p.estimated_hr for p in progress_history)
-        total_done = sum(p.done_hr for p in progress_history)
-        productivity_score = min(100, (total_done / total_estimated * 100)) if total_estimated > 0 else 0
-        
-        # Reliability: Consistency in meeting estimates
-        reliability_scores = []
-        for p in progress_history:
-            if p.estimated_hr > 0:
-                accuracy = min(100, (p.done_hr / p.estimated_hr * 100))
-                reliability_scores.append(accuracy)
-        
-        reliability_score = sum(reliability_scores) / len(reliability_scores) if reliability_scores else 0
-        
-        # Quality: Based on completion rate and consistency
-        completion_rates = []
-        for p in progress_history:
-            if p.estimated_hr > 0:
-                completion_rate = min(100, (p.done_hr / p.estimated_hr * 100))
-                completion_rates.append(completion_rate)
-        
-        quality_score = sum(completion_rates) / len(completion_rates) if completion_rates else 0
-        
-        # Overall performance (weighted average)
-        overall_performance = (productivity_score * 0.4 + reliability_score * 0.3 + quality_score * 0.3)
-        
-        return {
-            "productivity_score": round(productivity_score, 2),
-            "reliability_score": round(reliability_score, 2),
-            "quality_score": round(quality_score, 2),
-            "overall_performance": round(overall_performance, 2)
-        }
-
-    def _analyze_task_status(self, task: TaskOutput, progress_history: List[TaskProgressDomain], stop_history: List) -> Dict[str, Any]:
-        """Analyze task status and history"""
-        current_status = task.status.value if hasattr(task.status, 'value') else str(task.status)
-        
-        # Status duration
-        status_duration = 0
-        if task.start_date:
-            status_duration = (datetime.now(timezone.utc) - task.start_date).days
-        
-        # Status changes
-        status_changes = len(progress_history) if progress_history else 0
-        
-        # Stop frequency for repetitive tasks
-        stop_frequency = len(stop_history) if stop_history else 0
-        
-        # Status health
-        if current_status == "completed":
-            status_health = "excellent"
-        elif current_status == "in_progress" and task.done_hr > 0:
-            status_health = "good"
-        elif current_status == "pending":
-            status_health = "needs_attention"
-        else:
-            status_health = "warning"
-        
-        return {
-            "current_status": current_status,
-            "status_health": status_health,
-            "status_duration_days": status_duration,
-            "status_changes": status_changes,
-            "stop_frequency": stop_frequency,
-            "is_repetitive": task.is_repititive,
-            "is_stopped": task.is_stopped
-        }
-
-    def _analyze_time_metrics(self, task: TaskOutput, progress_history: List[TaskProgressDomain]) -> Dict[str, Any]:
-        """Analyze time-related metrics"""
-        if not task.start_date:
-            return {
-                "time_spent_hours": 0,
-                "time_remaining_hours": 0,
-                "time_efficiency": 0,
-                "deadline_status": "no_deadline",
-                "start_date": None,
-                "end_date": None,
-            }
-        
-        now = datetime.now(timezone.utc)
-        time_spent = (now - task.start_date).total_seconds() / 3600  # hours
-        
-        if task.end_date:
-            time_remaining = (task.end_date - now).total_seconds() / 3600  # hours
-            total_duration = (task.end_date - task.start_date).total_seconds() / 3600
-            
-            # Time efficiency
-            time_efficiency = (task.done_hr / time_spent * 100) if time_spent > 0 else 0
-            
-            # Deadline status
-            if time_remaining < 0:
-                deadline_status = "overdue"
-            elif time_remaining < total_duration * 0.1:  # Less than 10% time remaining
-                deadline_status = "urgent"
-            elif time_remaining < total_duration * 0.3:  # Less than 30% time remaining
-                deadline_status = "approaching"
-            else:
-                deadline_status = "on_track"
-        else:
-            time_remaining = 0
-            time_efficiency = 0
-            deadline_status = "no_deadline"
-        
-        return {
-            "time_spent_hours": round(time_spent, 2),
-            "time_remaining_hours": round(time_remaining, 2),
-            "time_efficiency": round(time_efficiency, 2),
-            "deadline_status": deadline_status,
-            "start_date": task.start_date,
-            "end_date": task.end_date
-        }
-
-    def _generate_analytics_summary(self, task: TaskOutput, completion_rate: float, time_efficiency: Dict[str, Any], time_analysis: Dict[str, Any]) -> Dict[str, Any]:
-        """Generate a summary of the analytics"""
-        efficiency_score = time_efficiency.get("efficiency_score", 0)
-        
-        # Overall grade
-        if completion_rate >= 99:
-            grade = "A"
-        elif completion_rate >= 90 and efficiency_score >= 80:
-            grade = "A"
-        elif completion_rate >= 75 and efficiency_score >= 70:
-            grade = "B"
-        elif completion_rate >= 60 and efficiency_score >= 60:
-            grade = "C"
-        elif completion_rate >= 40:
-            grade = "D"
-        else:
-            grade = "F"
-        
-        # Recommendations
-        recommendations = []
-        # Deadline urgency first
-        deadline_status = time_analysis.get("deadline_status")
-        if deadline_status in ("urgent", "overdue"):
-            # Always include the word "urgent" to satisfy UI/tests expectations
-            recommendations.insert(0, "Address urgent deadline: prioritize this task")
-        # Resuming repetitive tasks next
-        if task.is_repititive and task.is_stopped:
-            recommendations.insert(0, "Consider resuming this repetitive task")
-        # Completion and efficiency recommendations
-        if completion_rate < 50:
-            recommendations.append("Focus on completing more work to meet targets")
-        if efficiency_score < 70:
-            recommendations.append("Improve time management and efficiency")
-        if task.status == "pending" and task.start_date:
-            recommendations.append("Start working on this task soon")
-        
-        if not recommendations:
-            recommendations.append("Keep up the good work!")
-        
-        return {
-            "grade": grade,
-            "overall_score": round((completion_rate + efficiency_score) / 2, 2),
-            "recommendations": recommendations,
-            "key_insights": [
-                f"Task is {completion_rate:.1f}% complete",
-                f"Efficiency score: {efficiency_score:.1f}%",
-                f"Status: {task.status}"
-            ]
-        }
 
     async def get_tasks(self, current_user,search_name=None, skip: int = 0, limit: int = 100, uncompleted=False, completed=False):
-        result = []
-        async with self.uow:
-            try:
-                if search_name:
-                    tasks = await self.uow.tasks.get_tasks_by_name(search_name, skip=skip, limit=limit)
-                else:
-                    tasks = await self.uow.tasks.get_tasks(skip=skip, limit=limit, fetch_all=True)
-                if uncompleted:
-                    tasks=[task for task in tasks if task.status!="completed"]
-                if completed:
-                    tasks=[task for task in tasks if task.status=="completed"]
-                num=len(tasks)
-                tasks.sort(key=lambda x: x.end_date)
+        tasks = await self.uow.tasks.get_tasks(
+            current_user.id,
+            skip=skip,
+            limit=limit,
+            search_name=search_name,
+            uncompleted=uncompleted,
+            completed=completed,
+        )
+        num = len(tasks)
+        tasks.sort(key=lambda x: x.end_date)
+        return {"tasks": tasks, "total": num}
 
-                for task in tasks:
-                    if task.owner_id == current_user.id or current_user.id in task.assignees:
-                        await self._handle_repetitive_task(task)
-                        result.append(task)
-            except Exception:
-                await self.uow.rollback()
-                raise
-            else:
-                await self.uow.commit()
-            return {"tasks":result,"total":num}
-
-
-    async def get_all_tasks_analytics(self, current_user) -> List[Dict[str, Any]]:
-        analytics_results = []
-        print(current_user)
-        async with self.uow:
-            try:
-                all_tasks = await self.uow.tasks.get_tasks(current_user.id, fetch_all=True)
-                for task in all_tasks:
-                    progress_history = await self.uow.tasks.get_progress(task.id, skip=0, limit=1000)
-                    stop_history = []
-                    if task.is_repititive:
-                        get_stop_progress = getattr(self.uow.tasks, "get_stop_progress", None)
-                        if callable(get_stop_progress):
-                            stop_history = await self.uow.tasks.get_stop_progress(task.id)
-                        else:
-                            stop_history = [progress for progress in progress_history if getattr(progress, "status", None) == "is_stopped"]
-
-                    analytics = await self._calculate_task_analytics(task, progress_history, stop_history)
-                    analytics_results.append({
-                        "task": task,  # Convert TaskOutput to dictionary
-                        "analytics": analytics
-                    })
-            except Exception:
-                await self.uow.rollback()
-                raise
-            else:
-                await self.uow.commit()
-            print(analytics_results)
-            return analytics_results
 
     async def delete_task(self, task_id: int, current_user):
         async with self.uow:
@@ -578,5 +236,4 @@ class TaskService:
             raise PermissionError("You don't have permission to view this task's progress")
 
         result=await self.uow.tasks.get_progress(task_id, skip, limit)
-        result.sort(key=lambda x: x.start_date, reverse=True)
         return result

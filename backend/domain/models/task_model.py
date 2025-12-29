@@ -25,6 +25,11 @@ class TaskCreateInput:
 
 
 @dataclass
+class SubTaskOutput:
+    id: int
+    description: str
+
+@dataclass
 class TaskOutput:
     id: int
     description: str
@@ -37,8 +42,11 @@ class TaskOutput:
     status: TaskStatus = TaskStatus.pending
     start_date: Optional[datetime] = None
     main_task_id: Optional[int] = None
-    subtasks: List[int] = field(default_factory=list)
-    assignees: List[int] = field(default_factory=list)
+    subtasks: Optional[List[SubTaskOutput]] = None
+    assignees: Optional[List[str]] = None
+
+
+
     
 
 @dataclass

@@ -1,154 +1,118 @@
-import { LogOut, Menu } from "lucide-react";
+import { Calendar, ChevronDown, Home, LayoutDashboard, LineChart, LogOut, Target, User } from "lucide-react";
 import { useState } from "react";
-import { NavLink, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 
 export default function Header() {
   const navigate = useNavigate();
-  const [navOpen, setNavOpen] = useState(false);
+  const location = useLocation();
+  const [showUserMenu, setShowUserMenu] = useState(false);
 
   const handleLogout = () => {
-    localStorage.removeItem("access_token");
-    localStorage.removeItem("refresh_token");
+    localStorage.clear();
     navigate("/login");
   };
 
-  const linkBase =
-    "relative text-sm md:text-base font-semibold px-4 py-2 rounded-lg transition-all";
-  const linkActive =
-    "text-blue-900 bg-blue-100 shadow-sm after:content-[''] after:absolute after:left-4 after:right-4 after:-bottom-1 after:h-0.5 after:rounded-full after:bg-blue-500";
-  const linkIdle =
-    "text-blue-600 hover:text-blue-800 hover:bg-blue-50";
+  const navItems = [
+    { path: "/", label: "Home", icon: Home },
+    { path: "/plans", label: "Plans", icon: Calendar },
+    { path: "/tasks", label: "Tasks", icon: LayoutDashboard },
+    { path: "/task-analytics", label: "Analytics", icon: LineChart },
+  ];
+
+  const isActive = (path) => {
+    if (path === "/") return location.pathname === "/";
+    return location.pathname.startsWith(path);
+  };
 
   return (
-    <header className="backdrop-blur bg-white/80 border-b border-blue-100 sticky top-0 z-50">
-      <div className="mx-auto max-w-7xl px-4 md:px-6">
-        <div className="flex items-center justify-between h-16 md:h-20">
-          {/* Brand */}
-          <div className="flex items-center gap-3">
-            <span className="bg-gradient-to-br from-blue-600 to-blue-500 text-white rounded-xl px-3 py-1 font-extrabold text-lg shadow-sm select-none">
-              TP
-            </span>
-            <div className="flex flex-col leading-tight">
-              <h1 className="text-xl md:text-2xl font-extrabold tracking-tight text-blue-800">
-                TimePlanner
-              </h1>
-              <span className="hidden md:block text-xs text-blue-500/80 font-medium">
-                Plan. Track. Improve.
-              </span>
+    <header className="bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex justify-between items-center h-16">
+          {/* Logo/Brand */}
+          <Link to="/" className="flex items-center gap-2 group">
+            <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center group-hover:shadow-lg transition-shadow">
+              <Target className="w-6 h-6 text-white" />
             </div>
-          </div>
+            <span className="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent hidden sm:block">
+              TaskMaster
+            </span>
+          </Link>
 
-          {/* Mobile menu button */}
-          <button
-            className="md:hidden p-2 rounded-lg text-blue-700 hover:bg-blue-100"
-            onClick={() => setNavOpen((v) => !v)}
-            aria-label="Open navigation"
-          >
-            <Menu size={24} />
-          </button>
-
-          {/* Desktop nav */}
+          {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center gap-1">
-            <NavLink
-              to="/tasks"
-              className={({ isActive }) =>
-                `${linkBase} ${isActive ? linkActive : linkIdle}`
-              }
-            >
-              Tasks
-            </NavLink>
-            <NavLink
-              to="/plans"
-              className={({ isActive }) =>
-                `${linkBase} ${isActive ? linkActive : linkIdle}`
-              }
-            >
-              Plans
-            </NavLink>
-            <NavLink
-              to="/date-analytics"
-              className={({ isActive }) =>
-                `${linkBase} ${isActive ? linkActive : linkIdle}`
-              }
-            >
-              Date Analytics
-            </NavLink>
-            <NavLink
-              to="/task-analytics"
-              className={({ isActive }) =>
-                `${linkBase} ${isActive ? linkActive : linkIdle}`
-              }
-            >
-              Task Analytics
-            </NavLink>
-
-            <div className="mx-2 h-6 w-px bg-blue-100" />
-
-            <button
-              onClick={handleLogout}
-              className="flex items-center gap-2 bg-red-50 hover:bg-red-100 text-red-600 hover:text-red-800 px-4 py-2 rounded-lg font-semibold transition-colors shadow-sm"
-              title="Logout"
-            >
-              <LogOut size={18} /> Logout
-            </button>
+            {navItems.map((item) => {
+              const Icon = item.icon;
+              const active = isActive(item.path);
+              return (
+                <Link
+                  key={item.path}
+                  to={item.path}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${active
+                      ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-md"
+                      : "text-gray-700 hover:bg-gray-100"
+                    }`}
+                >
+                  <Icon className="w-4 h-4" />
+                  <span>{item.label}</span>
+                </Link>
+              );
+            })}
           </nav>
+
+          {/* User Menu */}
+          <div className="relative">
+            <button
+              onClick={() => setShowUserMenu(!showUserMenu)}
+              className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-100 transition-colors"
+            >
+              <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-purple-600 rounded-full flex items-center justify-center">
+                <User className="w-5 h-5 text-white" />
+              </div>
+              <ChevronDown className={`w-4 h-4 text-gray-600 transition-transform ${showUserMenu ? "rotate-180" : ""}`} />
+            </button>
+
+            {/* Dropdown Menu */}
+            {showUserMenu && (
+              <>
+                <div
+                  className="fixed inset-0 z-10"
+                  onClick={() => setShowUserMenu(false)}
+                />
+                <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-xl border border-gray-200 py-2 z-20">
+                  <button
+                    onClick={handleLogout}
+                    className="w-full flex items-center gap-3 px-4 py-2 text-left text-gray-700 hover:bg-red-50 hover:text-red-600 transition-colors"
+                  >
+                    <LogOut className="w-4 h-4" />
+                    <span className="font-medium">Logout</span>
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         </div>
+
+        {/* Mobile Navigation */}
+        <nav className="md:hidden flex items-center gap-1 pb-3 overflow-x-auto">
+          {navItems.map((item) => {
+            const Icon = item.icon;
+            const active = isActive(item.path);
+            return (
+              <Link
+                key={item.path}
+                to={item.path}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg font-medium text-sm whitespace-nowrap transition-all ${active
+                    ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-md"
+                    : "text-gray-700 hover:bg-gray-100"
+                  }`}
+              >
+                <Icon className="w-4 h-4" />
+                <span>{item.label}</span>
+              </Link>
+            );
+          })}
+        </nav>
       </div>
-
-      {/* Mobile drawer */}
-      {navOpen && (
-        <div className="md:hidden border-t border-blue-100 bg-white/95 backdrop-blur">
-          <nav className="max-w-7xl mx-auto px-4 py-3 flex flex-col gap-2">
-            <NavLink
-              to="/tasks"
-              className={({ isActive }) =>
-                `${linkBase} ${isActive ? "bg-blue-100 text-blue-900" : "text-blue-700 hover:bg-blue-50"}`
-              }
-              onClick={() => setNavOpen(false)}
-            >
-              Tasks
-            </NavLink>
-            <NavLink
-              to="/plans"
-              className={({ isActive }) =>
-                `${linkBase} ${isActive ? "bg-blue-100 text-blue-900" : "text-blue-700 hover:bg-blue-50"}`
-              }
-              onClick={() => setNavOpen(false)}
-            >
-              Plans
-            </NavLink>
-            <NavLink
-              to="/date-analytics"
-              className={({ isActive }) =>
-                `${linkBase} ${isActive ? "bg-blue-100 text-blue-900" : "text-blue-700 hover:bg-blue-50"}`
-              }
-              onClick={() => setNavOpen(false)}
-            >
-              Date Analytics
-            </NavLink>
-            <NavLink
-              to="/task-analytics"
-              className={({ isActive }) =>
-                `${linkBase} ${isActive ? "bg-blue-100 text-blue-900" : "text-blue-700 hover:bg-blue-50"}`
-              }
-              onClick={() => setNavOpen(false)}
-            >
-              Task Analytics
-            </NavLink>
-
-            <button
-              onClick={() => {
-                setNavOpen(false);
-                handleLogout();
-              }}
-              className="mt-1 flex items-center gap-2 bg-red-50 hover:bg-red-100 text-red-600 hover:text-red-800 px-4 py-2 rounded-lg font-semibold transition-colors shadow-sm"
-              title="Logout"
-            >
-              <LogOut size={18} /> Logout
-            </button>
-          </nav>
-        </div>
-      )}
     </header>
   );
 }

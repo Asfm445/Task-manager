@@ -26,12 +26,17 @@ class TaskCreate(TaskBase):
     pass
 
 
+class SubTask(BaseModel):
+    id: int
+    description: str
+
+
 class Task(TaskBase):
     id: int
     done_hr: float
     is_stopped: bool = False
-    subtasks: Optional[List[int]] = []
-    assignees: Optional[List[int]] = []
+    subtasks: Optional[List[SubTask]] = []
+    assignees: Optional[List[str]] = []
     owner_id: Optional[int] = None  # <-- Add this
 
     model_config = ConfigDict(from_attributes=True)
@@ -63,3 +68,10 @@ class TaskProgress(BaseModel):
     status: TaskStatus
     done_hr: float
     estimated_hr: float
+
+    model_config = ConfigDict(from_attributes=True)
+
+class PaginatedTaskProgress(BaseModel):
+    data: List[TaskProgress]
+    total: int
+    

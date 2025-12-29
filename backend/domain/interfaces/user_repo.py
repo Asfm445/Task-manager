@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from domain.models.user_model import  UserRegister
+from domain.models.user_model import  UserRegister, User as dUser
 
 # Abstract Interface for UserRepository
 class IUserRepository(ABC):
@@ -23,4 +23,8 @@ class IUserRepository(ABC):
 
     @abstractmethod
     async def CheckEmailAndUsername(self, email: str, username) -> bool:
+        pass
+
+    @abstractmethod
+    async def find_by_id(self, user_id: int) -> dUser:
         pass
