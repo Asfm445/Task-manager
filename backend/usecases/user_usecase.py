@@ -16,14 +16,13 @@ class UserUsecase:
         self.email_service=email_service
 
     async def Register(self, user: UserRegister):
-        if await self.repo.FindByEmail(user.email):
-            raise BadRequestError("Email already exist")
-        if await self.repo.FindByUsername(user.username):
-            raise BadRequestError("Username already exist")
+        if await self.repo.CheckEmail(user.email):
+            raise BadRequestError("Email or Username already exist")
+        
         data={"username":user.username,"email":user.email}
         token=self.jwt_service.create_verification_token(data)
         result = await self.email_service.send_verification_email(user.username,user.email, token["token"])
-        print(result)
+        # print(result)
         if not result:
             raise BadRequestError("invalid Email")
         token["token"]=self.jwt_service.hash_token(token["token"])

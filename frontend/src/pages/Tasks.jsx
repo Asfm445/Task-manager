@@ -15,6 +15,7 @@ export default function Tasks() {
     fetchTasks,
     loadMoreTasks,
     resetTasks,
+    createTask
   } = useTasks();
 
   const [showForm, setShowForm] = useState(false);
@@ -86,7 +87,7 @@ export default function Tasks() {
 
   const handleCreate = async (data) => {
     try {
-      await fetchTasks.createTask(data);
+      let res=await createTask(data);
       setMessage("Task created successfully");
       setShowForm(false);
       setTimeout(() => setMessage(""), 2000);

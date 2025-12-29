@@ -3,13 +3,26 @@ from domain.models.user_model import User as dUser
 from domain.models.user_model import UserRegister
 from infrastructure.dto.user_dto import create_domain_user_from_model
 from infrastructure.models.model import User as UserModel
-from sqlalchemy import select, update
+from sqlalchemy import select, update,exists
 from sqlalchemy.ext.asyncio import AsyncSession
+
 
 
 class UserRepository(IUserRepository):
     def __init__(self, db: AsyncSession):
         self.db = db
+
+    async def CheckEmailAndUsername(self, email: str, username) -> bool:
+        try:
+            # This generates: SELECT EXISTS (SELECT 1 FROM users WHERE email = :email)
+            stmt = select(exists().where(UserModel.email == email or UserModel.username))
+            result = await self.db.execute(stmt)
+            return result.scalar() or False
+        except Exception as e:
+            # Avoid using print() in production; the logger we set up in main.py is better
+            print(f"CheckEmail error: {e}")
+            raise
+
 
     async def FindByEmail(self, email: str)-> dUser:
         try:
@@ -19,6 +32,7 @@ class UserRepository(IUserRepository):
                 .limit(1)
             )
             result=result.scalars().first()
+            print("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++here repo++++++++++++++++++++++++++++++++++++++++++++++")
             return create_domain_user_from_model(result)if result else None
         except Exception as e:
             print(f"FindByEmail error: {e}")

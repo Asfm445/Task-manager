@@ -10,8 +10,6 @@ def create_domain_user_from_model(user_model: UserModel) -> User:
         verified=user_model.verified,
         role=user_model.role,
         email=user_model.email,
-        assigned_tasks=[task.id for task in user_model.assigned_tasks],
-        my_tasks=[task.id for task in user_model.my_tasks],
     )
 
 

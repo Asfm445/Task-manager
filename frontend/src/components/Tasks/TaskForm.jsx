@@ -105,7 +105,7 @@ export default function TaskForm({ initialData = null, onCancel, onSubmit }) {
     if (form.main_task_id) {
       payload.main_task_id = Number(form.main_task_id);
     }
-
+    console.log("Final payload to submit:", payload);
     try {
       await onSubmit(payload);
       // ✅ If onSubmit succeeds, the parent component should handle closing the form

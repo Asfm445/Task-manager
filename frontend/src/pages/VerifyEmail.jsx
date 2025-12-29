@@ -14,7 +14,10 @@ export default function VerifyEmail() {
   useEffect(() => {
     const verify = async () => {
       try {
-        await api.get(`/auth/verify-email?token=${token}`);
+        let response = await api.get(`/auth/verify-email?token=${token}`);
+        if (response.status !== 200) {
+          throw new Error("Verification failed");
+        }
         setMessage("✅ Your email has been verified. Redirecting to login...");
         setTimeout(() => navigate("/login"), 2000);
       } catch (err) {

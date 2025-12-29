@@ -20,3 +20,7 @@ class IUserRepository(ABC):
     @abstractmethod
     async def get_all_users(self):
         pass
+
+    @abstractmethod
+    async def CheckEmailAndUsername(self, email: str, username) -> bool:
+        pass

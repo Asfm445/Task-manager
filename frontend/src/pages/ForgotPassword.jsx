@@ -13,7 +13,7 @@ export default function ForgotPassword() {
       await api.post("/auth/forgot-password", { email });
       setMessage("Password reset link sent to your email.");
     } catch (err) {
-      setMessage("Failed to send reset link.");
+      setMessage("Failed to send reset link."+err.message);
     } finally {
       setLoading(false);
     }
