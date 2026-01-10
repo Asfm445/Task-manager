@@ -27,6 +27,7 @@ def service(mock_uow):
 def current_user():
     class User:
         id = 1
+        email="awel@example.com"
     return User()
 
 
@@ -226,7 +227,8 @@ async def test_get_task_rolls_back_on_failure(service, mock_uow, current_user):
     )
 
     mock_uow.tasks.get_task = AsyncMock(return_value=task)
-    mock_uow.tasks.get_assignees_of_task=AsyncMock(return_value=[])
+    mock_uow.tasks.get_assignees_of_task_email=AsyncMock(return_value=[])
+    mock_uow.tasks.get_desription_and_id_of_subtasks=AsyncMock(return_value=[])
     mock_uow.tasks.create_progress = AsyncMock()
     mock_uow.tasks.update_task = AsyncMock(side_effect=RuntimeError("DB failure"))
 
@@ -341,7 +343,8 @@ async def test_get_task_success(service, mock_uow, current_user):
     )
     
     mock_uow.tasks.get_task = AsyncMock(return_value=task)
-    mock_uow.tasks.get_assignees_of_task=AsyncMock(return_value=[current_user.id])
+    mock_uow.tasks.get_assignees_of_task_email=AsyncMock(return_value=[current_user.email])
+    mock_uow.tasks.get_desription_and_id_of_subtasks=AsyncMock(return_value=[])
     
     result = await service.get_task(1, current_user)
     
@@ -371,7 +374,8 @@ async def test_get_task_permission_error(service, mock_uow, current_user):
     )
     
     mock_uow.tasks.get_task = AsyncMock(return_value=task)
-    mock_uow.tasks.get_assignees_of_task=AsyncMock(return_value=[])
+    mock_uow.tasks.get_assignees_of_task_email=AsyncMock(return_value=[])
+    mock_uow.tasks.get_desription_and_id_of_subtasks=AsyncMock(return_value=[])
     
     with pytest.raises(PermissionError, match="You don't have access to this task"):
         await service.get_task(1, current_user)
@@ -394,7 +398,8 @@ async def test_get_task_assigned_user_access(service, mock_uow, current_user):
     )
     
     mock_uow.tasks.get_task = AsyncMock(return_value=task)
-    mock_uow.tasks.get_assignees_of_task=AsyncMock(return_value=[current_user.id])
+    mock_uow.tasks.get_assignees_of_task_email=AsyncMock(return_value=[current_user.email])
+    mock_uow.tasks.get_desription_and_id_of_subtasks=AsyncMock(return_value=[])
     
     result = await service.get_task(1, current_user)
     
