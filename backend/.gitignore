@@ -3,3 +3,5 @@ node_modules
 .pytest_cache
 test.db 
 .env
+*.log
+api_performance.log

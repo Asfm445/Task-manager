@@ -2,7 +2,7 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
-import TimeLogAnalytics from "./components/Plans/DatePlanAnalytics";
+import DatePlanAnalytics from "./pages/DatePlanAnalytics";
 import ProtectedRoute from "./components/ProtectedRoute";
 import ForgotPassword from "./pages/ForgotPassword";
 import Home from "./pages/Home";
@@ -38,7 +38,7 @@ export default function App() {
           <Route path="/tasks/:id" element={<ProtectedRoute><TaskDetail /></ProtectedRoute>} />
           <Route path="/" element={<Home />} />
           <Route path="/home" element={<Home />} />
-          <Route path="/date-analytics" element={<TimeLogAnalytics />} />
+          <Route path="/date-analytics" element={<DatePlanAnalytics />} />
           <Route path="/task-analytics" element={<TaskAnalyticsDashboard />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />

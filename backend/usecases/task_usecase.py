@@ -3,7 +3,7 @@ from typing import Any, Dict, List
 
 from domain.exceptions import BadRequestError, NotFoundError
 from domain.interfaces.iuow import IUnitOfWork
-from domain.models.task_model import TaskCreateInput, TaskOutput, TaskProgressDomain, SubTaskOutput
+from domain.models.task_model import TaskCreateInput, TaskOutput, TaskProgressDomain, SubTaskOutput, TaskProgressAnalytics, TaskStatus
 
 
 class TaskService:
@@ -18,15 +18,8 @@ class TaskService:
     def _validate_dates(self, start_date, end_date):
         start_date = self._normalize_datetime(start_date)
         end_date = self._normalize_datetime(end_date)
-        now = datetime.now(timezone.utc)
-
-        if start_date and start_date < now:
-            raise BadRequestError("Start date cannot be in the past")
-        if end_date:
-            if end_date < now:
-                raise BadRequestError("End date cannot be in the past")
-            if start_date and end_date < start_date:
-                raise BadRequestError("End date cannot be before start date")
+        if start_date and end_date < start_date:
+            raise BadRequestError("End date cannot be before start date")
     
     async def _handle_repetitive_task(self, task: TaskOutput, max_cycle=100):
         
@@ -101,7 +94,56 @@ class TaskService:
         sub_tasks=await self.uow.tasks.get_desription_and_id_of_subtasks(task.id)
         task.subtasks = [SubTaskOutput(id=id, description=description) for description, id in sub_tasks]
         task.assignees = task_assginess
+        if task.is_repititive:
+            progresses=await self.uow.tasks.get_progress(task.id)
+            progresses=progresses["data"]
+            if progresses and len(progresses)>0:
+                total_estimated_hr=0
+                total_done_hr=0
+                total_stopped_hr=0
+                completed=0
+                for progress in progresses:
+                    if progress.status != "stopped":
+                        total_estimated_hr += progress.estimated_hr
+                        total_done_hr += progress.done_hr
+                        if progress.status == "completed":
+                            completed += 1
+                    else:
+                        stopped_time = progress.end_date - progress.start_date
+                        total_stopped_hr += stopped_time.total_seconds() / 3600
 
+                if total_estimated_hr > 0:
+                    accuracy = total_done_hr / total_estimated_hr
+                else:
+                    accuracy = 0
+                if len(progresses) > 0:
+                    completion_rate = completed / len(progresses)
+                else:
+                    completion_rate = 0
+                progress = TaskProgressAnalytics(
+                    done_hr=total_done_hr,
+                    estimated_hr=total_estimated_hr,
+                    accuracy=accuracy,
+                    completion_rate=completion_rate,
+                    stopped_hr=total_stopped_hr,
+                )
+        else:
+            progress = None
+        
+        now = datetime.now(timezone.utc)
+        if task.estimated_hr > 0:
+            curr_completion_rate = task.done_hr / task.estimated_hr
+        else:
+            curr_completion_rate = 0
+
+        total_duration = (task.end_date - task.start_date).total_seconds()
+        if total_duration > 0:
+            elapsed_duration = (now - task.start_date).total_seconds()
+            standard_completion_hr = (elapsed_duration / total_duration) * task.estimated_hr
+        else:
+            standard_completion_hr = 0
+    
+            
         if task.owner_id == current_user.id or current_user.email in task_assginess:
             async with self.uow:
                 try:
@@ -111,7 +153,7 @@ class TaskService:
                     raise
                 else:
                     await self.uow.commit()
-            return task
+            return {"task": task, "progress": progress, "standard_completion_hr": standard_completion_hr, "curr_completion_rate": curr_completion_rate}
 
         raise PermissionError("You don't have access to this task")
 
@@ -165,8 +207,15 @@ class TaskService:
             if "end_date" in task_data:
                 task_data["end_date"] = self._normalize_datetime(task_data["end_date"])
 
-            if task_data.get("end_date") and task_data.get("start_date"):
-                if task_data["end_date"] < task_data["start_date"]:
+            # Validate dates (handling partial updates)
+            start_date_to_check = task_data.get("start_date") or task.start_date
+            end_date_to_check = task_data.get("end_date") or task.end_date
+
+            # Ensure they are normalized if they came from existing task (already normalized usually, but good for safety)
+            # If they came from task_data they are already normalized above
+            
+            if start_date_to_check and end_date_to_check:
+                 if end_date_to_check < start_date_to_check:
                     raise BadRequestError("End date cannot be before start date")
 
             if task_data.get("estimated_hr") is not None and task_data["estimated_hr"] < 0:
@@ -193,11 +242,13 @@ class TaskService:
 
                 elif task.is_stopped and not stop:
                     stopped = await self.uow.tasks.get_stop(task_id)
+                    interval=task.end_date-task.start_date
                     await self.uow.tasks.update_task(
                         task_id,
                         {
                             "is_stopped": False,
-                            "start_date": datetime.now(timezone.utc)
+                            "start_date": datetime.now(timezone.utc),
+                            "end_date": datetime.now(timezone.utc)+interval,
                         }
                     )
                     await self.uow.tasks.create_progress(

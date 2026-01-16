@@ -4,8 +4,8 @@ import {
   Bar, BarChart, CartesianGrid, Cell, Legend, Pie, PieChart,
   ResponsiveContainer, Tooltip, XAxis, YAxis
 } from 'recharts';
-import api from "../../api"; // adjust path as needed
-import Header from "../Header"; // adjust path if needed
+import api from "../api"; // adjust path as needed
+import Header from "../components/Header"; // adjust path if needed
 
 // Mock data
 const mockTimeLogs = [
@@ -30,7 +30,7 @@ const generateCalendarData = (logs, year, month) => {
   const daysInMonth = new Date(year, month, 0).getDate();
   const calendarData = Array.from({ length: daysInMonth }, (_, i) => {
     const day = i + 1;
-    const dateString = `${year}-${month.toString().padStart(2,'0')}-${day.toString().padStart(2,'0')}`;
+    const dateString = `${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
     return { date: dateString, hours: 0, formattedDate: formatDate(dateString) };
   });
 
@@ -56,28 +56,28 @@ const calculateStats = (logs) => {
 
   logs.filter(log => log.date && log.start_time && log.end_time)
     .forEach(log => {
-    const start = new Date(`2000-01-01T${log.start_time}`);
-    const end = new Date(`2000-01-01T${log.end_time}`);
-    const duration = (end - start) / (1000 * 60);
-    totalMinutes += duration;
+      const start = new Date(`2000-01-01T${log.start_time}`);
+      const end = new Date(`2000-01-01T${log.end_time}`);
+      const duration = (end - start) / (1000 * 60);
+      totalMinutes += duration;
 
-    dailyStats[log.date] = (dailyStats[log.date] || 0) + duration;
+      dailyStats[log.date] = (dailyStats[log.date] || 0) + duration;
 
-    const topic = (log.description || '').split(' ')[0];
-    topicStats[topic] = (topicStats[topic] || 0) + duration;
-  });
+      const topic = (log.description || '').split(' ')[0];
+      topicStats[topic] = (topicStats[topic] || 0) + duration;
+    });
 
   const dailyData = Object.entries(dailyStats).map(([date, minutes]) => ({
     date,
     minutes,
-    hours: (minutes/60).toFixed(1),
+    hours: (minutes / 60).toFixed(1),
     formattedDate: formatDate(date)
   }));
 
   const topicData = Object.entries(topicStats).map(([topic, minutes]) => ({
     topic,
     minutes,
-    hours: (minutes/60).toFixed(1)
+    hours: (minutes / 60).toFixed(1)
   }));
 
   return {
@@ -133,7 +133,7 @@ const CalendarHeatmap = ({ calendarData }) => (
       <CalendarDays className="w-5 h-5 mr-2 text-blue-600" />Work Calendar
     </h2>
     <div className="grid grid-cols-7 gap-2">
-      {['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(day => (
+      {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
         <div key={day} className="text-center font-medium text-gray-500 py-2">{day}</div>
       ))}
       {calendarData.map(day => {
@@ -224,7 +224,7 @@ const TimeLogTable = ({ logs }) => (
       <table className="min-w-full divide-y divide-gray-200">
         <thead className="bg-gray-50">
           <tr>
-            {['Date','Start Time','End Time','Duration','Description'].map(h => (
+            {['Date', 'Start Time', 'End Time', 'Duration', 'Description'].map(h => (
               <th key={h} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{h}</th>
             ))}
           </tr>
@@ -240,8 +240,8 @@ const TimeLogTable = ({ logs }) => (
             return (
               <tr key={log.id}>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{formatDate(log.date)}</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{log.start_time.substring(0,5)}</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{log.end_time.substring(0,5)}</td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{log.start_time.substring(0, 5)}</td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{log.end_time.substring(0, 5)}</td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{hours}h {minutes}m</td>
                 <td className="px-6 py-4 text-sm text-gray-900">{log.description}</td>
               </tr>
@@ -254,10 +254,10 @@ const TimeLogTable = ({ logs }) => (
 );
 
 // --- Main Component ---
-const TimeLogAnalytics = () => {
+const DatePlanAnalytics = () => {
   const [timeLogs, setTimeLogs] = useState([]);
-  const [selectedMonth, setSelectedMonth] = useState(9);
-  const [selectedYear, setSelectedYear] = useState(2025);
+  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -268,7 +268,7 @@ const TimeLogAnalytics = () => {
         const res = await api.get("/plans/all");
         // Flatten all timelogs from all dayplans
         const allLogs = res.data
-          .flatMap(dayplan => 
+          .flatMap(dayplan =>
             (dayplan.times || []).map(log => ({
               ...log,
               date: dayplan.date // ensure each log has a date
@@ -302,8 +302,34 @@ const TimeLogAnalytics = () => {
       <Header />
       <div className="p-6 bg-gray-50 min-h-screen">
         <div className="max-w-7xl mx-auto">
-          <h1 className="text-3xl font-bold text-gray-800 mb-2">Time Log Analytics</h1>
-          <p className="text-gray-600 mb-8">Analyze your productivity patterns and time distribution</p>
+          <div className="flex flex-col md:flex-row justify-between items-center mb-8">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-800 mb-2">Time Log Analytics</h1>
+              <p className="text-gray-600">Analyze your productivity patterns and time distribution</p>
+            </div>
+            <div className="flex space-x-4 mt-4 md:mt-0">
+              <select
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(Number(e.target.value))}
+                className="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
+              >
+                {Array.from({ length: 12 }, (_, i) => (
+                  <option key={i + 1} value={i + 1}>
+                    {new Date(0, i).toLocaleString('default', { month: 'long' })}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={selectedYear}
+                onChange={(e) => setSelectedYear(Number(e.target.value))}
+                className="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
+              >
+                {[2024, 2025, 2026].map(year => (
+                  <option key={year} value={year}>{year}</option>
+                ))}
+              </select>
+            </div>
+          </div>
 
           <SummaryCards stats={stats} />
           <CalendarHeatmap calendarData={calendarData} />
@@ -318,4 +344,4 @@ const TimeLogAnalytics = () => {
   );
 };
 
-export default TimeLogAnalytics;
+export default DatePlanAnalytics;

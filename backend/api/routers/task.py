@@ -9,7 +9,8 @@ from api.schemas.task_schema import (
     TaskProgress,
     TaskUpdate,
     paginatedTask,
-    PaginatedTaskProgress
+    PaginatedTaskProgress,
+    TaskWithProgress
 )
 from api.utilities.handle_service_result import handle_service_result
 from fastapi import APIRouter, Depends
@@ -44,7 +45,7 @@ async def read_tasks(
     return result
 
 
-@router.get("/{task_id}", response_model=Task)
+@router.get("/{task_id}", response_model=TaskWithProgress)
 @handle_service_result
 async def read_task(
     task_id: int,

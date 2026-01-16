@@ -1,4 +1,4 @@
-import { Calendar, ChevronDown, Home, LayoutDashboard, LineChart, LogOut, Target, User } from "lucide-react";
+import { Calendar, ChevronDown, Home, LayoutDashboard, LineChart, LogOut, PieChart, Target, User } from "lucide-react";
 import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 
@@ -17,6 +17,7 @@ export default function Header() {
     { path: "/plans", label: "Plans", icon: Calendar },
     { path: "/tasks", label: "Tasks", icon: LayoutDashboard },
     { path: "/task-analytics", label: "Analytics", icon: LineChart },
+    { path: "/date-analytics", label: "Date Analytics", icon: PieChart },
   ];
 
   const isActive = (path) => {
@@ -48,8 +49,8 @@ export default function Header() {
                   key={item.path}
                   to={item.path}
                   className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${active
-                      ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-md"
-                      : "text-gray-700 hover:bg-gray-100"
+                    ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-md"
+                    : "text-gray-700 hover:bg-gray-100"
                     }`}
                 >
                   <Icon className="w-4 h-4" />
@@ -102,8 +103,8 @@ export default function Header() {
                 key={item.path}
                 to={item.path}
                 className={`flex items-center gap-2 px-3 py-1.5 rounded-lg font-medium text-sm whitespace-nowrap transition-all ${active
-                    ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-md"
-                    : "text-gray-700 hover:bg-gray-100"
+                  ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-md"
+                  : "text-gray-700 hover:bg-gray-100"
                   }`}
               >
                 <Icon className="w-4 h-4" />

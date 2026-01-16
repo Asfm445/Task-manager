@@ -5,7 +5,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { useTaskQuery, useTaskMutations, useProgressInfiniteQuery } from "../hooks/useTasksData";
+import { useTaskQuery, useTaskMutations, useProgressQuery } from "../hooks/useTasksData";
 import Header from "../components/Header";
 
 export default function TaskDetail() {
@@ -13,15 +13,15 @@ export default function TaskDetail() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("overview");
 
+  const [page, setPage] = useState(0);
+  const limit = 20;
+
   const { data, isLoading, isError, error } = useTaskQuery(id);
   const { toggleTask, deleteTask } = useTaskMutations();
   const {
     data: progressData,
-    fetchNextPage,
-    hasNextPage,
-    isFetchingNextPage,
     isLoading: isProgressLoading
-  } = useProgressInfiniteQuery(id);
+  } = useProgressQuery({ taskId: id, skip: page * limit, limit });
 
   if (isLoading) {
     return (
@@ -57,8 +57,9 @@ export default function TaskDetail() {
   }
 
   const { task, analytics } = data;
-  const progressEntries = progressData?.pages.flatMap(page => page.data) || [];
-  const totalProgress = progressData?.pages[0]?.total || 0;
+  const progressEntries = progressData?.data || [];
+  const totalProgress = progressData?.total || 0;
+  const totalPages = Math.ceil(totalProgress / limit);
 
   const handleToggleTask = async () => {
     try {
@@ -361,7 +362,7 @@ export default function TaskDetail() {
                           <div className="flex-1">
                             <div className="flex items-center gap-2 mb-1">
                               <span className="font-bold text-gray-900">
-                                Cycle {totalProgress - index}
+                                Cycle {totalProgress - (page * limit + index)}
                               </span>
                               <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${getStatusColor(entry.status)} shadow-sm border`}>
                                 {entry.status.replace("_", " ")}
@@ -387,14 +388,26 @@ export default function TaskDetail() {
                     ))}
                   </div>
 
-                  {hasNextPage && (
-                    <div className="flex justify-center mt-6">
+                  {totalPages > 1 && (
+                    <div className="flex justify-center items-center gap-4 mt-6">
                       <button
-                        onClick={() => fetchNextPage()}
-                        disabled={isFetchingNextPage}
-                        className="px-6 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-lg transition-all disabled:opacity-50"
+                        onClick={() => setPage(p => Math.max(0, p - 1))}
+                        disabled={page === 0}
+                        className="px-4 py-2 bg-white border border-gray-200 text-gray-700 font-semibold rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                       >
-                        {isFetchingNextPage ? "Loading more..." : "Load More Activity"}
+                        Previous
+                      </button>
+
+                      <span className="text-sm font-medium text-gray-600">
+                        Page {page + 1} of {totalPages}
+                      </span>
+
+                      <button
+                        onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
+                        disabled={page >= totalPages - 1}
+                        className="px-4 py-2 bg-white border border-gray-200 text-gray-700 font-semibold rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                      >
+                        Next
                       </button>
                     </div>
                   )}
@@ -420,17 +433,79 @@ export default function TaskDetail() {
           <div className="space-y-6">
             {analytics ? (
               <>
-                <div className="grid md:grid-cols-3 gap-4">
-                  <div className="bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-200 rounded-xl p-5">
-                    <div className="flex items-center gap-2 text-blue-600 mb-2">
-                      <BarChart3 className="w-5 h-5" />
-                      <span className="font-semibold">Completion</span>
+                <div className="grid md:grid-cols-2 gap-6 mb-6">
+                  {/* Completion Rate Card */}
+                  <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-2 text-blue-600">
+                        <BarChart3 className="w-5 h-5" />
+                        <h3 className="font-semibold text-lg">Completion Rate</h3>
+                      </div>
+                      <span className="text-2xl font-bold text-blue-900">
+                        {analytics.completion_metrics?.completion_rate || 0}%
+                      </span>
                     </div>
-                    <div className="text-3xl font-bold text-blue-900">
-                      {analytics.completion_metrics?.completion_rate || 0}%
+
+                    {/* Visual Bar for Completion Rate */}
+                    <div className="w-full bg-gray-100 rounded-full h-4 mb-2 overflow-hidden">
+                      <div
+                        className="bg-blue-600 h-4 rounded-full transition-all duration-500"
+                        style={{ width: `${Math.min(analytics.completion_metrics?.completion_rate || 0, 100)}%` }}
+                      ></div>
                     </div>
+                    <p className="text-sm text-gray-500 text-right">Target: 100%</p>
                   </div>
 
+                  {/* Standard Completion vs Estimated Card */}
+                  <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-2 text-purple-600">
+                        <Clock className="w-5 h-5" />
+                        <h3 className="font-semibold text-lg">Standard Time</h3>
+                      </div>
+                      <span className="text-2xl font-bold text-purple-900">
+                        {data.standard_completion_hr ? data.standard_completion_hr.toFixed(1) : "N/A"}h
+                      </span>
+                    </div>
+
+                    {data.standard_completion_hr && (
+                      <div className="space-y-3">
+                        <div>
+                          <div className="flex justify-between text-sm mb-1">
+                            <span className="font-medium text-gray-700">Estimated</span>
+                            <span className="font-bold">{task.estimated_hr}h</span>
+                          </div>
+                          <div className="w-full bg-gray-100 rounded-full h-2.5 overflow-hidden">
+                            <div
+                              className="bg-gray-400 h-2.5 rounded-full"
+                              style={{ width: '100%' }} // Relative baseline
+                            ></div>
+                          </div>
+                        </div>
+
+                        <div>
+                          <div className="flex justify-between text-sm mb-1">
+                            <span className="font-medium text-purple-700">Standard (Avg)</span>
+                            <span className="font-bold text-purple-700">{data.standard_completion_hr.toFixed(1)}h</span>
+                          </div>
+                          <div className="w-full bg-gray-100 rounded-full h-2.5 overflow-hidden">
+                            <div
+                              className={`h-2.5 rounded-full ${data.standard_completion_hr > task.estimated_hr ? 'bg-red-500' : 'bg-green-500'}`}
+                              style={{ width: `${Math.min((data.standard_completion_hr / (task.estimated_hr || 1)) * 100, 100)}%` }}
+                            ></div>
+                          </div>
+                          <p className="text-xs text-gray-500 mt-1">
+                            {data.standard_completion_hr > task.estimated_hr
+                              ? "Standard time is higher than estimated (Task might be complex)"
+                              : "Standard time is lower than estimated (Good performance)"}
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="grid md:grid-cols-3 gap-4">
                   <div className="bg-gradient-to-br from-green-50 to-green-100 border border-green-200 rounded-xl p-5">
                     <div className="flex items-center gap-2 text-green-600 mb-2">
                       <TrendingUp className="w-5 h-5" />
@@ -439,6 +514,9 @@ export default function TaskDetail() {
                     <div className="text-3xl font-bold text-green-900">
                       {analytics.time_efficiency?.efficiency_score || 0}%
                     </div>
+                    <p className="text-sm text-green-800 mt-1">
+                      {analytics.time_efficiency?.status}
+                    </p>
                   </div>
 
                   <div className="bg-gradient-to-br from-purple-50 to-purple-100 border border-purple-200 rounded-xl p-5">
@@ -453,7 +531,7 @@ export default function TaskDetail() {
                 </div>
 
                 {analytics.summary?.recommendations && analytics.summary.recommendations.length > 0 && (
-                  <div className="bg-white border border-gray-200 rounded-xl p-6">
+                  <div className="bg-white border border-gray-200 rounded-xl p-6 mt-6">
                     <h2 className="text-xl font-bold text-gray-900 mb-4">Recommendations</h2>
                     <ul className="space-y-2">
                       {analytics.summary.recommendations.map((rec, index) => (

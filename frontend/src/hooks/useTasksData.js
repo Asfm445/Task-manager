@@ -66,14 +66,85 @@ export const useTaskQuery = (id) => {
     return useQuery({
         queryKey: ["task", id],
         queryFn: async () => {
-            const [taskRes, analyticsRes] = await Promise.all([
-                api.get(`/tasks/${id}`),
-                api.get(`/tasks/analytics/${id}`).catch(() => ({ data: { analytics: null } })),
-            ]);
+            const res = await api.get(`/tasks/${id}`);
+            // Backend returns: { task, progress, standard_completion_hr, curr_completion_rate }
+            const data = res.data;
+            const { task, curr_completion_rate } = data;
+
+            // --- Derive Analytics Client-Side ---
+
+            // 1. Completion Metrics
+            // curr_completion_rate is a float (e.g. 0.5 for 50%)
+            const completion_rate = Math.round((curr_completion_rate || 0) * 100);
+
+            const completion_metrics = {
+                completion_rate,
+                time_spent: task.done_hr,
+                estimated_time: task.estimated_hr
+            };
+
+            // 2. Time Efficiency
+            let efficiency_score = 100;
+            if (task.done_hr > 0) {
+                // Efficiency = (Estimated / Actual) * 100
+                efficiency_score = Math.round((task.estimated_hr / task.done_hr) * 100);
+            } else if (task.estimated_hr === 0) {
+                efficiency_score = 100; // undefined efficiency, assume ok
+            } else {
+                // done_hr is 0 but estimated > 0.
+                // Technically efficiency is infinite (haven't spent time yet), 
+                // but for display let's default to 100 until they start.
+                efficiency_score = 100;
+            }
+
+            let efficiency_status = "On Track";
+            if (efficiency_score >= 110) efficiency_status = "Efficient";
+            else if (efficiency_score < 80) efficiency_status = "Inefficient";
+
+            // 3. Analytics Summary (Grade & Recommendations)
+            let grade = "B";
+            if (efficiency_score >= 120) grade = "S";
+            else if (efficiency_score >= 90) grade = "A";
+            else if (efficiency_score >= 70) grade = "B";
+            else grade = "C";
+
+            const recommendations = [];
+            if (efficiency_score < 70) {
+                recommendations.push("Task is taking longer than expected. Consider breaking it down.");
+                recommendations.push("Review blockers with the team.");
+            } else if (efficiency_score > 150) {
+                recommendations.push("Task estimated time might be too generous.");
+            }
+
+            const endDate = new Date(task.end_date);
+            const now = new Date();
+            if (completion_rate < 50 && endDate < now) {
+                recommendations.push("Task is overdue and less than halfway done. Prioritize immediately.");
+            } else if (completion_rate === 100) {
+                recommendations.push("Task completed! Good job.");
+            }
+
+            if (recommendations.length === 0) {
+                recommendations.push("Keep up the good work!");
+            }
 
             return {
-                task: taskRes.data,
-                analytics: analyticsRes.data.analytics,
+                task: task,
+                analytics: {
+                    completion_metrics,
+                    time_efficiency: {
+                        efficiency_score,
+                        status: efficiency_status
+                    },
+                    summary: {
+                        grade,
+                        recommendations
+                    }
+                },
+                // Pass through other backend data if needed
+                progress: data.progress,
+                standard_completion_hr: data.standard_completion_hr,
+                curr_completion_rate: data.curr_completion_rate
             };
         },
         enabled: !!id,
@@ -84,20 +155,17 @@ export const useTaskQuery = (id) => {
 /**
  * Hook for fetching task progress with infinite scrolling
  */
-export const useProgressInfiniteQuery = (taskId) => {
-    return useInfiniteQuery({
-        queryKey: ["task-progress", taskId],
-        queryFn: async ({ pageParam = 0 }) => {
+export const useProgressQuery = ({ taskId, skip = 0, limit = 20 }) => {
+    return useQuery({
+        queryKey: ["task-progress", taskId, { skip, limit }],
+        queryFn: async () => {
             const res = await api.get(`/tasks/progress/${taskId}`, {
-                params: { skip: pageParam, limit: 10 }
+                params: { skip, limit }
             });
             return res.data; // { total, data }
         },
-        getNextPageParam: (lastPage, allPages) => {
-            const loadedCount = allPages.reduce((acc, page) => acc + page.data.length, 0);
-            return loadedCount < lastPage.total ? loadedCount : undefined;
-        },
         enabled: !!taskId,
+        placeholderData: (previousData) => previousData,
     });
 };
 
@@ -145,7 +213,10 @@ export const useTaskMutations = () => {
         }).mutateAsync,
 
         toggleTask: useMutation({
-            mutationFn: ({ id, stop }) => api.post(`/tasks/${id}/toggle`, { stop }),
+            mutationFn: ({ id, stop }) => {
+                const endpoint = stop ? `/tasks/stop/${id}` : `/tasks/start/${id}`;
+                return api.post(endpoint, {});
+            },
             onSuccess: (res, { id }) => {
                 queryClient.invalidateQueries(["tasks"]);
                 queryClient.invalidateQueries(["task", id]);

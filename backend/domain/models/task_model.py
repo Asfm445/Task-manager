@@ -85,3 +85,12 @@ class TaskProgressDomain:
     status: TaskStatus
     done_hr: float
     estimated_hr: float
+
+@dataclass
+class TaskProgressAnalytics:
+    done_hr: float
+    estimated_hr: float
+    accuracy: float
+    stopped_hr: float
+    completion_rate: float
+

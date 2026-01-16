@@ -68,13 +68,6 @@ async def test_validate_date_end_date_before__start_date(service):
     with pytest.raises(BadRequestError, match="End date cannot be before start date"):
         await service._validate_dates(start_date, end_date)
 
-@pytest.mark.asyncio
-async def test_validate_date_start_date_is_past(service):
-    start_date=datetime.now(timezone.utc) - timedelta(days=2)
-    end_date=datetime.now(timezone.utc) - timedelta(days=1)
-    with pytest.raises(BadRequestError, match="Start date cannot be in the past"):
-        await service._validate_dates(start_date, end_date)
-
 
 
 
@@ -185,12 +178,13 @@ async def test_update_task(service, mock_uow, current_user):
 
 @pytest.mark.asyncio
 async def test_handle_repetitive_task_creates_progress(service, mock_uow):
+    now = datetime.now(timezone.utc)
     task = TaskOutput(
         id=1,
         owner_id=1,
         assignees=[],
-        start_date=datetime.now(timezone.utc) - timedelta(days=7),
-        end_date=datetime.now(timezone.utc) - timedelta(days=6),
+        start_date=now - timedelta(days=7),
+        end_date=now - timedelta(days=6),
         status="pending",
         done_hr=2,
         estimated_hr=4,
@@ -206,6 +200,15 @@ async def test_handle_repetitive_task_creates_progress(service, mock_uow):
 
     assert mock_uow.tasks.create_progress.await_count == 7
     mock_uow.tasks.update_task.assert_awaited()
+    
+    # Verify the arguments of the last call to update_task
+    task_id, update_data = mock_uow.tasks.update_task.call_args.args
+    assert task_id == task.id
+    assert update_data["status"] == "in_progress"
+    assert update_data["done_hr"] == 0.0
+    # You can also verify start_date/end_date logic if needed
+    assert update_data["start_date"] == now 
+    assert update_data["end_date"] == now + timedelta(days=1)
 
 
 
@@ -231,6 +234,7 @@ async def test_get_task_rolls_back_on_failure(service, mock_uow, current_user):
     mock_uow.tasks.get_desription_and_id_of_subtasks=AsyncMock(return_value=[])
     mock_uow.tasks.create_progress = AsyncMock()
     mock_uow.tasks.update_task = AsyncMock(side_effect=RuntimeError("DB failure"))
+    mock_uow.tasks.get_progress=AsyncMock(return_value={"total":1,"data":[]})
 
 
     with pytest.raises(RuntimeError, match="DB failure"):
@@ -277,8 +281,8 @@ async def test_toggle_task_start_success(service, mock_uow, current_user):
         is_stopped=True,
         description="desc",
         estimated_hr=1,
-        start_date=now,
-        end_date=now
+        start_date=now-timedelta(hours=2),
+        end_date=now-timedelta(hours=1)
     )
     stopped_info = MagicMock()
     stopped_info.stopped_at = now - timedelta(hours=1)
@@ -290,6 +294,11 @@ async def test_toggle_task_start_success(service, mock_uow, current_user):
     mock_uow.tasks.delete_stop = AsyncMock()
 
     result = await service.toggle_task(task.id, stop=False, current_user=current_user)
+
+    task_id,updated=mock_uow.tasks.update_task.call_args.args
+    assert updated["is_stopped"] == False
+    assert abs((updated["start_date"] - now).total_seconds()) < 1.0, f"Expected {now}, got {updated['start_date']}"
+    assert abs((updated["end_date"] - (now + timedelta(hours=1))).total_seconds()) < 1.0, f"Expected {now + timedelta(hours=1)}, got {updated['end_date']}"
 
     assert result == {"message": "task started successfully"}
     mock_uow.tasks.update_task.assert_awaited_once()
@@ -348,7 +357,9 @@ async def test_get_task_success(service, mock_uow, current_user):
     
     result = await service.get_task(1, current_user)
     
-    assert result == task
+    assert result["task"] == task
+    assert "standard_completion_hr" in result
+    assert "curr_completion_rate" in result
     mock_uow.tasks.get_task.assert_awaited_once_with(1)
 
 @pytest.mark.asyncio
@@ -403,7 +414,7 @@ async def test_get_task_assigned_user_access(service, mock_uow, current_user):
     
     result = await service.get_task(1, current_user)
     
-    assert result == task
+    assert result["task"] == task
 
 @pytest.mark.asyncio
 async def test_get_progress_success(service, mock_uow, current_user):

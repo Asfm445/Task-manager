@@ -74,4 +74,17 @@ class TaskProgress(BaseModel):
 class PaginatedTaskProgress(BaseModel):
     data: List[TaskProgress]
     total: int
-    
+
+class TaskProgressAnalytics(BaseModel):
+    done_hr: float
+    estimated_hr: float
+    accuracy: float
+    stopped_hr: float
+    completion_rate: float
+
+class TaskWithProgress(BaseModel):
+    task: Task
+    progress: Optional[TaskProgressAnalytics] = None
+    standard_completion_hr: float
+    curr_completion_rate: float
+

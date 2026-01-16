@@ -192,12 +192,20 @@ class TaskRepository(AbstractTaskRepository):
             select(StopProgress).filter(StopProgress.task_id == task_id)
         )).scalar_one_or_none()
 
-    async def get_progress(self, task_id: int, skip: int = 0, limit: int = 100):
-        result = await self.db.execute(
-            select(TaskProgress)
-            .filter(TaskProgress.task_id == task_id).order_by(TaskProgress.end_date.desc())
-            .offset(skip)
-            .limit(limit)
+    async def get_progress(self, task_id: int, skip: int = 0,limit=None):
+        if limit:
+            result = await self.db.execute(
+                select(TaskProgress)
+                .filter(TaskProgress.task_id == task_id).order_by(TaskProgress.end_date.desc())
+                .offset(skip)
+                .limit(limit)
+            )
+        else:
+            result = await self.db.execute(
+                select(TaskProgress)
+                .filter(TaskProgress.task_id == task_id).order_by(TaskProgress.end_date.desc())
+                .offset(skip)
+                .limit(limit)
         )
         total = await self.db.execute(
             select(func.count(TaskProgress.id)).filter(TaskProgress.task_id == task_id)
