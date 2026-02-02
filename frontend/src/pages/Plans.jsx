@@ -51,6 +51,7 @@ export default function PlanPage() {
         start_time: form.start.length === 5 ? `${form.start}:00` : form.start,
         end_time: form.end.length === 5 ? `${form.end}:00` : form.end,
         plan_id: planId,
+        description: form.description,
       };
       await addLog(payload);
       setForm({ start: "", end: "", task_id: "" });
@@ -97,8 +98,8 @@ export default function PlanPage() {
               <button
                 onClick={() => setShowForm((v) => !v)}
                 className={`px-4 py-2 rounded-lg font-semibold shadow-sm transition-all ${showForm
-                    ? "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                    : "bg-blue-600 text-white hover:bg-blue-700 hover:shadow-md"
+                  ? "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                  : "bg-blue-600 text-white hover:bg-blue-700 hover:shadow-md"
                   }`}
               >
                 {showForm ? "Cancel" : "+ Add Entry"}
@@ -138,8 +139,8 @@ export default function PlanPage() {
                     log={log}
                     formatTime={formatTime}
                     getDuration={getDuration}
-                    onMarkSuccess={handleMarkSuccess}
-                    onDeleteLog={handleDeleteLog}
+                    onDone={handleMarkSuccess}
+                    onDelete={handleDeleteLog}
                   />
                 ))}
               </ul>

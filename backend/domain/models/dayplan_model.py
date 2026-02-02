@@ -19,10 +19,16 @@ class TimeLogCreate:
     start_time: time
     end_time: time
     plan_id: int
+    description: Optional[str] = None
 
 
 @dataclass
-class TimeLog(TimeLogCreate):
+class TimeLog:
     id: int
+    task_id: int
+    start_time: time
+    end_time: time
+    plan_id: int
     done: bool
     task: "TaskOutput"
+    description: Optional[str] = None

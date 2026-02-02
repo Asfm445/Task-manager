@@ -19,6 +19,7 @@ def time_create_to_domain(schema: TimeCreate) -> TimeLogCreate:
         start_time=schema.start_time,
         end_time=schema.end_time,
         plan_id=schema.plan_id,
+        description=schema.description,
     )
 
 #updated changeed

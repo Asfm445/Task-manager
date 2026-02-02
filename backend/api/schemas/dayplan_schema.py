@@ -17,6 +17,7 @@ class TimeBase(BaseModel):
     start_time: time
     end_time: time
     plan_id: int
+    description: Optional[str] = None
 
 
 class TimeCreate(TimeBase):

@@ -159,6 +159,7 @@ class TaskService:
 
 
     async def get_tasks(self, current_user,search_name=None, skip: int = 0, limit: int = 100, uncompleted=False, completed=False):
+        print("+++++++++++++++++++++++++++++++++++++hre in usecase before fetching++++++++++++++++++++++")
         tasks = await self.uow.tasks.get_tasks(
             current_user.id,
             skip=skip,
@@ -167,6 +168,7 @@ class TaskService:
             uncompleted=uncompleted,
             completed=completed,
         )
+        print("+++++++++++++++++++++++++++++++++++++hre in usecase after fetching++++++++++++++++++++++")
         num = len(tasks)
         tasks.sort(key=lambda x: x.end_date)
         return {"tasks": tasks, "total": num}

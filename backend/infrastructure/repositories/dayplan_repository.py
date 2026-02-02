@@ -96,7 +96,8 @@ class DayPlanRepository(AbstractDayPlanRepository):
             end_time=db_time_log.end_time,
             plan_id=db_time_log.plan_id,
             done=db_time_log.done,
-            task=None  # Don't load the task relationship to avoid lazy loading issues
+            task=None,  # Don't load the task relationship to avoid lazy loading issues
+            description=db_time_log.description,
         )
 
     async def get_time_log(self, id):

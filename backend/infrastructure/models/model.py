@@ -110,6 +110,7 @@ class TimeLog(Base):
     task_id = Column(Integer, ForeignKey("tasks.id", ondelete="CASCADE"))
     plan_id = Column(Integer, ForeignKey("plans.id", ondelete="CASCADE"))
     done = Column(Boolean, default=False)
+    description = Column(String, nullable=True)
 
     plan = relationship("DayPlan", back_populates="times", lazy="selectin")
     task = relationship("Task", back_populates="time_logs", lazy="selectin")
