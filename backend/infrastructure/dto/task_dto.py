@@ -37,6 +37,8 @@ def orm_to_domain_task_output(orm_task: ORMTask) -> TaskOutput:
         start_date=orm_task.start_date,
         main_task_id=orm_task.main_task_id,
         owner_id=orm_task.owner_id,
+        ai_feedback=orm_task.ai_feedback,
+        ai_recommendations=orm_task.ai_recommendations,
     )
 
 

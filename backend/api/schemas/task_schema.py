@@ -38,6 +38,8 @@ class Task(TaskBase):
     subtasks: Optional[List[SubTask]] = []
     assignees: Optional[List[str]] = []
     owner_id: Optional[int] = None  # <-- Add this
+    ai_feedback: Optional[str] = None
+    ai_recommendations: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -82,9 +84,16 @@ class TaskProgressAnalytics(BaseModel):
     stopped_hr: float
     completion_rate: float
 
+
+class AiRecommendation(BaseModel):
+    recommendations: str
+    feedback: str
+
+
 class TaskWithProgress(BaseModel):
     task: Task
     progress: Optional[TaskProgressAnalytics] = None
     standard_completion_hr: float
+    ai_recommendation: Optional[AiRecommendation] = None
     curr_completion_rate: float
 

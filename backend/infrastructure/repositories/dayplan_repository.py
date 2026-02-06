@@ -48,6 +48,19 @@ class DayPlanRepository(AbstractDayPlanRepository):
             return None
         return orm_to_domain_dayplan(orm_dayplan)
 
+    async def get_time_logs_by_task_id_and_minimum_date(self, task_id: int, minimum_date: date) -> list[TimeLog]:
+        result = await self.db.execute(
+            select(DayPlan)
+            .options(
+                selectinload(DayPlan.times).selectinload(TimeLog.task)
+            )
+            # Now you reference the DayPlan class directly for the filter
+            .filter(DayPlan.times.any(TimeLog.task_id == task_id), DayPlan.date >= minimum_date)
+        )
+        
+        orm_day_plans = result.scalars().all()
+        return [orm_to_domain_dayplan(dp) for dp in orm_day_plans]
+
     async def get_dayplanById(self, id: int) -> DayPlan:
         result = await self.db.execute(select(DayPlan).filter(DayPlan.id == id))
         dayplan = result.scalars().first()

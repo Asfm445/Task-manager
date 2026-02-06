@@ -15,6 +15,8 @@ from infrastructure.services.jwt_service import JwtService
 from infrastructure.services.password_service import PasswordService
 from infrastructure.uow.dayyplan_uow import DayPlanUnitOfWork
 from infrastructure.uow.task_uow import SqlAlchemyUnitOfWork
+from infrastructure.repositories.dayplan_repository import DayPlanRepository
+from infrastructure.services.ai_service import AIServiceImpl
 from jose import JWTError
 from sqlalchemy.ext.asyncio import AsyncSession
 from usecases.dayplan_usecase import DayPlanUseCase
@@ -48,8 +50,12 @@ async def get_uow(db: AsyncSession = Depends(get_db)) -> IUnitOfWork:
     # Create a session factory that reuses the existing session
     return SqlAlchemyUnitOfWork(lambda: db)
 
-async def get_task_service(uow: IUnitOfWork = Depends(get_uow)) -> TaskService:
-    return TaskService(uow)
+async def get_task_service(db: AsyncSession = Depends(get_db), uow: IUnitOfWork = Depends(get_uow)) -> TaskService:
+    api_key=os.getenv("GEMINI_API_KEY")
+    print("++++++++++++++++++++++++++++++++++++++++++++++++++++here api key+++++++++++++++++++++++++++++++++")
+    print(api_key)
+    ai_service = AIServiceImpl(api_key)
+    return TaskService(uow, dayplan_repo=DayPlanRepository(db), ai_service=ai_service)
 
 
 async def get_user_usecase(db: AsyncSession = Depends(get_db)) -> UserUsecase:
@@ -70,7 +76,6 @@ async def get_current_user(
     token: str = Depends(oauth2_scheme),
     user_usecase: UserUsecase = Depends(get_user_usecase),
 ) -> TokenClaimUser:
-    print("+++++++++++++++++++++++++++++++++++++find issue+++++++++++++++++++++++")
     try:
         payload, err = user_usecase.jwt_service.decode_token(token)
         if not payload:
@@ -87,8 +92,6 @@ async def get_current_user(
         raise HTTPException(
             status_code=401, detail="Invalid authentication credentials"
         )
-    print("++++++++++++++++++++++++++++++++++++not here++++++++++++++++++++++++++")
-    print(user_id, email, username)
     return TokenClaimUser(user_id, email, username, role)
 
 

@@ -62,6 +62,8 @@ class Task(Base):
     owner_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"))
     main_task_id = Column(Integer, ForeignKey("tasks.id", ondelete="CASCADE"), nullable=True)
     is_stopped = Column(Boolean, default=False, nullable=False)
+    ai_feedback = Column(String, nullable=True)
+    ai_recommendations = Column(String, nullable=True)
 
     main_task = relationship("Task", remote_side=[id], back_populates="subtasks", lazy="selectin")
     subtasks = relationship(

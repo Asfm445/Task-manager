@@ -4,11 +4,15 @@ from typing import Any, Dict, List
 from domain.exceptions import BadRequestError, NotFoundError
 from domain.interfaces.iuow import IUnitOfWork
 from domain.models.task_model import TaskCreateInput, TaskOutput, TaskProgressDomain, SubTaskOutput, TaskProgressAnalytics, TaskStatus
-
+from domain.interfaces.ai_service import AIService
+from domain.models.dayplan_model import TaskAndTimeLogs, AiRecommendation
+from domain.interfaces.dayplan_repo import AbstractDayPlanRepository
 
 class TaskService:
-    def __init__(self, uow: IUnitOfWork):
+    def __init__(self, uow: IUnitOfWork, dayplan_repo: AbstractDayPlanRepository, ai_service: AIService):
         self.uow = uow
+        self.dayplan_repo = dayplan_repo
+        self.ai_service = ai_service
 
     def _normalize_datetime(self, dt):
         if dt and dt.tzinfo is None:
@@ -94,6 +98,7 @@ class TaskService:
         sub_tasks=await self.uow.tasks.get_desription_and_id_of_subtasks(task.id)
         task.subtasks = [SubTaskOutput(id=id, description=description) for description, id in sub_tasks]
         task.assignees = task_assginess
+        progress=None
         if task.is_repititive:
             progresses=await self.uow.tasks.get_progress(task.id)
             progresses=progresses["data"]
@@ -127,8 +132,6 @@ class TaskService:
                     completion_rate=completion_rate,
                     stopped_hr=total_stopped_hr,
                 )
-        else:
-            progress = None
         
         now = datetime.now(timezone.utc)
         if task.estimated_hr > 0:
@@ -142,6 +145,15 @@ class TaskService:
             standard_completion_hr = (elapsed_duration / total_duration) * task.estimated_hr
         else:
             standard_completion_hr = 0
+
+
+        ai_recommendation=None
+        if task.ai_feedback or task.ai_recommendations:
+            ai_recommendation = AiRecommendation(
+                feedback=task.ai_feedback or "",
+                recommendations=task.ai_recommendations or ""
+            )
+
     
             
         if task.owner_id == current_user.id or current_user.email in task_assginess:
@@ -153,13 +165,21 @@ class TaskService:
                     raise
                 else:
                     await self.uow.commit()
-            return {"task": task, "progress": progress, "standard_completion_hr": standard_completion_hr, "curr_completion_rate": curr_completion_rate}
+            
+            response = {
+                "task": task, 
+                "progress": progress, 
+                "standard_completion_hr": standard_completion_hr, 
+                "curr_completion_rate": curr_completion_rate
+            }
+            if ai_recommendation:
+                response["ai_recommendation"] = ai_recommendation
+            return response
 
         raise PermissionError("You don't have access to this task")
 
 
     async def get_tasks(self, current_user,search_name=None, skip: int = 0, limit: int = 100, uncompleted=False, completed=False):
-        print("+++++++++++++++++++++++++++++++++++++hre in usecase before fetching++++++++++++++++++++++")
         tasks = await self.uow.tasks.get_tasks(
             current_user.id,
             skip=skip,
@@ -168,7 +188,6 @@ class TaskService:
             uncompleted=uncompleted,
             completed=completed,
         )
-        print("+++++++++++++++++++++++++++++++++++++hre in usecase after fetching++++++++++++++++++++++")
         num = len(tasks)
         tasks.sort(key=lambda x: x.end_date)
         return {"tasks": tasks, "total": num}
@@ -208,6 +227,11 @@ class TaskService:
                 task_data["start_date"] = self._normalize_datetime(task_data["start_date"])
             if "end_date" in task_data:
                 task_data["end_date"] = self._normalize_datetime(task_data["end_date"])
+
+            # If description changes, reset AI analysis
+            if "description" in task_data and task_data["description"] != task.description:
+                task_data["ai_feedback"] = None
+                task_data["ai_recommendations"] = None
 
             # Validate dates (handling partial updates)
             start_date_to_check = task_data.get("start_date") or task.start_date

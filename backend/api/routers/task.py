@@ -41,7 +41,6 @@ async def read_tasks(
     service=Depends(get_task_service),
     current_user=Depends(get_current_user),
 ):
-    print("+++++++++++++++++++++++++++++++++++++++++++++reched here++++++++++++++++++++++++++++++++++++++")
     result = await service.get_tasks(current_user=current_user,search_name=search_name, skip=skip, limit=limit, uncompleted=uncompleted, completed=completed)
     return result
 

@@ -109,6 +109,17 @@ export const useTaskQuery = (id) => {
             else grade = "C";
 
             const recommendations = [];
+            if (data.ai_recommendation) {
+                if (data.ai_recommendation.feedback) {
+                    recommendations.push(data.ai_recommendation.feedback);
+                }
+                if (data.ai_recommendation.recommendations) {
+                    // If it's a string that looks like a list, we could split it, 
+                    // but for now let's just push it.
+                    recommendations.push(data.ai_recommendation.recommendations);
+                }
+            }
+
             if (efficiency_score < 70) {
                 recommendations.push("Task is taking longer than expected. Consider breaking it down.");
                 recommendations.push("Review blockers with the team.");

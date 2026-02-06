@@ -44,6 +44,8 @@ class TaskOutput:
     main_task_id: Optional[int] = None
     subtasks: Optional[List[SubTaskOutput]] = None
     assignees: Optional[List[str]] = None
+    ai_feedback: Optional[str] = None
+    ai_recommendations: Optional[str] = None
 
 
 

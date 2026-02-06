@@ -1,10 +1,8 @@
-
-
 services:
   fastapi_app:
     build:
       context: .
-      target: dev  # dev stage for development
+      target: dev # dev stage for development
     container_name: fastapi_app
     ports:
       - "8000:8000"
@@ -22,11 +20,23 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}" ]
       interval: 5s
       timeout: 5s
       retries: 10
 
+  worker:
+    build:
+      context: .
+      target: dev
+    container_name: ai_worker
+    env_file: .env
+    volumes:
+      - .:/app
+    command: python worker.py
+    depends_on:
+      db:
+        condition: service_healthy
 
 volumes:
   pgdata:

@@ -14,6 +14,8 @@ def handle_service_result(func):
         except PermissionError as pe:
             raise HTTPException(status_code=403, detail=str(pe))
         except Exception as ie:
-            raise HTTPException(status_code=500, detail=str(ie))  # Avoid exposing raw errors in prod
+            print("+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++error+++++++++++++++++++++++++++++++++++++++++++++++")
+            print(ie)
+            raise HTTPException(status_code=500)  # Avoid exposing raw errors in prod
 
     return wrapper
