@@ -19,10 +19,33 @@ class TimeLogCreate:
     start_time: time
     end_time: time
     plan_id: int
+    description: Optional[str] = None
 
 
 @dataclass
-class TimeLog(TimeLogCreate):
+class TimeLog:
     id: int
+    task_id: int
+    start_time: time
+    end_time: time
+    plan_id: int
     done: bool
     task: "TaskOutput"
+    description: Optional[str] = None
+
+
+@dataclass
+class TaskAndTimeLogs:
+    task_description: str
+    time_logs: List[DayPlan]
+    task_start_date: date
+    task_end_date: date
+    task_estimated_hr: float
+    task_done_hr: float
+    task_completion_rate: float
+
+@dataclass
+class AiRecommendation:
+    feedback: str
+    recommendations: str
+    

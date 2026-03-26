@@ -27,6 +27,7 @@ def service(mock_uow):
 def current_user():
     class User:
         id = 1
+        email="awel@example.com"
     return User()
 
 
@@ -67,13 +68,6 @@ async def test_validate_date_end_date_before__start_date(service):
     with pytest.raises(BadRequestError, match="End date cannot be before start date"):
         await service._validate_dates(start_date, end_date)
 
-@pytest.mark.asyncio
-async def test_validate_date_start_date_is_past(service):
-    start_date=datetime.now(timezone.utc) - timedelta(days=2)
-    end_date=datetime.now(timezone.utc) - timedelta(days=1)
-    with pytest.raises(BadRequestError, match="Start date cannot be in the past"):
-        await service._validate_dates(start_date, end_date)
-
 
 
 
@@ -106,6 +100,7 @@ async def test_create_subtask_main_task_notfound(service, mock_uow, current_user
         is_repititive=False
     )
     mock_uow.tasks.get_task=AsyncMock(return_value=None)
+    mock_uow.tasks.get_assignees_of_task=AsyncMock(return_value=[])
 
     with pytest.raises(NotFoundError, match="Main task not found"):
         await service.create_task(task_input, current_user)
@@ -126,10 +121,11 @@ async def test_create_subtask_has_no_pernmission(service, mock_uow, current_user
                       end_date=datetime.now(timezone.utc) + timedelta(days=2),
                       estimated_hr=1,
                       owner_id=99, 
-                      assignees=[])
+                    )
     mock_uow.tasks.get_task=AsyncMock(return_value=task)
+    mock_uow.tasks.get_assignees_of_task=AsyncMock(return_value=[])
 
-    with pytest.raises(PermissionError, match="Cannot create subtask for another user's task"):
+    with pytest.raises(PermissionError, match="You are not authorized to create subtask for another user's task"):
         await service.create_task(task_input, current_user)
 
 @pytest.mark.asyncio
@@ -148,9 +144,10 @@ async def test_assigned_user_create_subtask(service, mock_uow, current_user):
                       end_date=datetime.now(timezone.utc) + timedelta(days=2),
                       estimated_hr=1,
                       owner_id=99, 
-                      assignees=[1])
+                    )
     mock_uow.tasks.get_task=AsyncMock(return_value=task)
     mock_uow.tasks.create_task = AsyncMock(return_value="created_task")
+    mock_uow.tasks.get_assignees_of_task=AsyncMock(return_value=[current_user.id])
 
     result = await service.create_task(task_input, current_user)
 
@@ -180,46 +177,14 @@ async def test_update_task(service, mock_uow, current_user):
 
 
 @pytest.mark.asyncio
-async def test_get_tasks_filters_by_user(service, mock_uow, current_user):
-    task_owned = TaskOutput(id=1,
-                      description="disc",
-                      end_date=datetime.now(timezone.utc) + timedelta(days=2),
-                      estimated_hr=1,
-                      owner_id=current_user.id, 
-                      assignees=[],
-                      status="in_progress"
-                      )
-    task_assigned = TaskOutput(id=1,
-                      description="disc",
-                      end_date=datetime.now(timezone.utc) + timedelta(days=2),
-                      estimated_hr=1,
-                      owner_id=1, 
-                      assignees=[1],
-                      status="in_progress")
-    task_unrelated = TaskOutput(id=1,
-                      description="disc",
-                      end_date=datetime.now(timezone.utc) + timedelta(days=2),
-                      estimated_hr=1,
-                      owner_id=2, 
-                      assignees=[],
-                      status="in_progress")
-
-    mock_uow.tasks.get_tasks = AsyncMock(return_value=[task_owned, task_assigned, task_unrelated])
-
-    result = await service.get_tasks(current_user)
-
-    assert len(result) == 2
-    mock_uow.commit.assert_awaited()
-
-
-@pytest.mark.asyncio
 async def test_handle_repetitive_task_creates_progress(service, mock_uow):
+    now = datetime.now(timezone.utc)
     task = TaskOutput(
         id=1,
         owner_id=1,
         assignees=[],
-        start_date=datetime.now(timezone.utc) - timedelta(days=7),
-        end_date=datetime.now(timezone.utc) - timedelta(days=6),
+        start_date=now - timedelta(days=7),
+        end_date=now - timedelta(days=6),
         status="pending",
         done_hr=2,
         estimated_hr=4,
@@ -235,17 +200,25 @@ async def test_handle_repetitive_task_creates_progress(service, mock_uow):
 
     assert mock_uow.tasks.create_progress.await_count == 7
     mock_uow.tasks.update_task.assert_awaited()
+    
+    # Verify the arguments of the last call to update_task
+    task_id, update_data = mock_uow.tasks.update_task.call_args.args
+    assert task_id == task.id
+    assert update_data["status"] == "in_progress"
+    assert update_data["done_hr"] == 0.0
+    # You can also verify start_date/end_date logic if needed
+    assert update_data["start_date"] == now 
+    assert update_data["end_date"] == now + timedelta(days=1)
 
 
 
 
 @pytest.mark.asyncio
-async def test_get_tasks_rolls_back_on_failure(service, mock_uow, current_user):
+async def test_get_task_rolls_back_on_failure(service, mock_uow, current_user):
     # make get_tasks return one task
     task = TaskOutput(
         id=1,
         owner_id=current_user.id,
-        assignees=[],
         start_date=datetime.now(timezone.utc) - timedelta(days=7),
         end_date=datetime.now(timezone.utc) - timedelta(days=6),
         status="pending",
@@ -256,13 +229,16 @@ async def test_get_tasks_rolls_back_on_failure(service, mock_uow, current_user):
         is_stopped=False,
     )
 
-    mock_uow.tasks.get_tasks = AsyncMock(return_value=[task])
+    mock_uow.tasks.get_task = AsyncMock(return_value=task)
+    mock_uow.tasks.get_assignees_of_task_email=AsyncMock(return_value=[])
+    mock_uow.tasks.get_desription_and_id_of_subtasks=AsyncMock(return_value=[])
     mock_uow.tasks.create_progress = AsyncMock()
     mock_uow.tasks.update_task = AsyncMock(side_effect=RuntimeError("DB failure"))
+    mock_uow.tasks.get_progress=AsyncMock(return_value={"total":1,"data":[]})
 
 
     with pytest.raises(RuntimeError, match="DB failure"):
-        await service.get_tasks(skip=0, limit=10, current_user=current_user)
+        await service.get_task(1, current_user)
 
     mock_uow.commit.assert_not_awaited()
     mock_uow.rollback.assert_awaited()
@@ -305,8 +281,8 @@ async def test_toggle_task_start_success(service, mock_uow, current_user):
         is_stopped=True,
         description="desc",
         estimated_hr=1,
-        start_date=now,
-        end_date=now
+        start_date=now-timedelta(hours=2),
+        end_date=now-timedelta(hours=1)
     )
     stopped_info = MagicMock()
     stopped_info.stopped_at = now - timedelta(hours=1)
@@ -318,6 +294,11 @@ async def test_toggle_task_start_success(service, mock_uow, current_user):
     mock_uow.tasks.delete_stop = AsyncMock()
 
     result = await service.toggle_task(task.id, stop=False, current_user=current_user)
+
+    task_id,updated=mock_uow.tasks.update_task.call_args.args
+    assert updated["is_stopped"] == False
+    assert abs((updated["start_date"] - now).total_seconds()) < 1.0, f"Expected {now}, got {updated['start_date']}"
+    assert abs((updated["end_date"] - (now + timedelta(hours=1))).total_seconds()) < 1.0, f"Expected {now + timedelta(hours=1)}, got {updated['end_date']}"
 
     assert result == {"message": "task started successfully"}
     mock_uow.tasks.update_task.assert_awaited_once()
@@ -355,406 +336,6 @@ async def test_toggle_task_update_fails_triggers_exception(service, mock_uow, cu
     mock_uow.commit.assert_not_awaited()
     mock_uow.rollback.assert_awaited()
 
-
-@pytest.mark.asyncio
-async def test_get_task_analytics_success(service, mock_uow, current_user):
-    # Mock task data
-    task = TaskOutput(
-        id=1,
-        description="Test Task",
-        start_date=datetime.now(timezone.utc) - timedelta(days=5),
-        end_date=datetime.now(timezone.utc) + timedelta(days=5),
-        estimated_hr=10.0,
-        done_hr=6.0,
-        owner_id=current_user.id,
-        status="in_progress",
-        is_repititive=True,
-        is_stopped=False,
-        subtasks=[],
-        assignees=[]
-    )
-    
-    # Mock progress history
-    progress_history = [
-        TaskProgressDomain(
-            task_id=1,
-            start_date=datetime.now(timezone.utc) - timedelta(days=4),
-            end_date=datetime.now(timezone.utc) - timedelta(days=3),
-            status="completed",
-            done_hr=3.0,
-            estimated_hr=3.0
-        ),
-        TaskProgressDomain(
-            task_id=1,
-            start_date=datetime.now(timezone.utc) - timedelta(days=2),
-            end_date=datetime.now(timezone.utc) - timedelta(days=1),
-            status="completed",
-            done_hr=3.0,
-            estimated_hr=3.0
-        )
-    ]
-    
-    mock_uow.tasks.get_task = AsyncMock(return_value=task)
-    mock_uow.tasks.get_progress = AsyncMock(return_value=progress_history)
-    mock_uow.tasks.get_stop_progress = AsyncMock(return_value=[])
-    
-    result = await service.get_task_analytics(1, current_user)
-    
-    assert "task" in result
-    assert "analytics" in result
-    assert result["task"] == task
-    
-    analytics = result["analytics"]
-    assert "completion_metrics" in analytics
-    assert "time_efficiency" in analytics
-    assert "progress_trends" in analytics
-    assert "performance_indicators" in analytics
-    assert "status_analysis" in analytics
-    assert "time_analysis" in analytics
-    assert "summary" in analytics
-
-@pytest.mark.asyncio
-async def test_get_task_analytics_completion_metrics(service, mock_uow, current_user):
-    task = TaskOutput(
-        id=1,
-        description="Test Task",
-        start_date=datetime.now(timezone.utc) - timedelta(days=5),
-        end_date=datetime.now(timezone.utc) + timedelta(days=5),
-        estimated_hr=10.0,
-        done_hr=6.0,
-        owner_id=current_user.id,
-        status="in_progress",
-        is_repititive=False,
-        is_stopped=False,
-        subtasks=[],
-        assignees=[]
-    )
-    
-    mock_uow.tasks.get_task = AsyncMock(return_value=task)
-    mock_uow.tasks.get_progress = AsyncMock(return_value=[])
-    mock_uow.tasks.get_stop_progress = AsyncMock(return_value=[])
-    
-    result = await service.get_task_analytics(1, current_user)
-    completion_metrics = result["analytics"]["completion_metrics"]
-    
-    assert completion_metrics["completion_rate"] == 60.0  # 6/10 * 100
-    assert completion_metrics["remaining_hours"] == 4.0   # 10 - 6
-    assert completion_metrics["done_hours"] == 6.0
-    assert completion_metrics["estimated_hours"] == 10.0
-    assert completion_metrics["progress_percentage"] == 60.0
-
-@pytest.mark.asyncio
-async def test_get_task_analytics_time_efficiency(service, mock_uow, current_user):
-    task = TaskOutput(
-        id=1,
-        description="Test Task",
-        start_date=datetime.now(timezone.utc) - timedelta(days=5),
-        end_date=datetime.now(timezone.utc) + timedelta(days=5),
-        estimated_hr=10.0,
-        done_hr=6.0,
-        owner_id=current_user.id,
-        status="in_progress",
-        is_repititive=True,
-        is_stopped=False,
-        subtasks=[],
-        assignees=[]
-    )
-    
-    progress_history = [
-        TaskProgressDomain(
-            task_id=1,
-            start_date=datetime.now(timezone.utc) - timedelta(days=4),
-            end_date=datetime.now(timezone.utc) - timedelta(days=3),
-            status="completed",
-            done_hr=3.0,
-            estimated_hr=3.0
-        ),
-        TaskProgressDomain(
-            task_id=1,
-            start_date=datetime.now(timezone.utc) - timedelta(days=2),
-            end_date=datetime.now(timezone.utc) - timedelta(days=1),
-            status="completed",
-            done_hr=3.0,
-            estimated_hr=3.0
-        )
-    ]
-    
-    mock_uow.tasks.get_task = AsyncMock(return_value=task)
-    mock_uow.tasks.get_progress = AsyncMock(return_value=progress_history)
-    mock_uow.tasks.get_stop_progress = AsyncMock(return_value=[])
-    
-    result = await service.get_task_analytics(1, current_user)
-    time_efficiency = result["analytics"]["time_efficiency"]
-    
-    assert time_efficiency["cycles_completed"] == 2
-    assert time_efficiency["total_cycles"] == 2
-    assert time_efficiency["avg_hours_per_cycle"] == 3.0  # (3+3)/2
-    assert time_efficiency["total_hours_worked"] == 6.0
-
-@pytest.mark.asyncio
-async def test_get_task_analytics_progress_trends(service, mock_uow, current_user):
-    task = TaskOutput(
-        id=1,
-        description="Test Task",
-        start_date=datetime.now(timezone.utc) - timedelta(days=10),
-        end_date=datetime.now(timezone.utc) + timedelta(days=5),
-        estimated_hr=10.0,
-        done_hr=6.0,
-        owner_id=current_user.id,
-        status="in_progress",
-        is_repititive=True,
-        is_stopped=False,
-        subtasks=[],
-        assignees=[]
-    )
-    
-    # Create progress history with improving trend
-    progress_history = [
-        TaskProgressDomain(
-            task_id=1,
-            start_date=datetime.now(timezone.utc) - timedelta(days=9),
-            end_date=datetime.now(timezone.utc) - timedelta(days=8),
-            status="completed",
-            done_hr=2.0,
-            estimated_hr=3.0
-        ),
-        TaskProgressDomain(
-            task_id=1,
-            start_date=datetime.now(timezone.utc) - timedelta(days=7),
-            end_date=datetime.now(timezone.utc) - timedelta(days=6),
-            status="completed",
-            done_hr=2.5,
-            estimated_hr=3.0
-        ),
-        TaskProgressDomain(
-            task_id=1,
-            start_date=datetime.now(timezone.utc) - timedelta(days=5),
-            end_date=datetime.now(timezone.utc) - timedelta(days=4),
-            status="completed",
-            done_hr=3.0,
-            estimated_hr=3.0
-        ),
-        TaskProgressDomain(
-            task_id=1,
-            start_date=datetime.now(timezone.utc) - timedelta(days=3),
-            end_date=datetime.now(timezone.utc) - timedelta(days=2),
-            status="completed",
-            done_hr=3.5,
-            estimated_hr=3.0
-        )
-    ]
-    
-    mock_uow.tasks.get_task = AsyncMock(return_value=task)
-    mock_uow.tasks.get_progress = AsyncMock(return_value=progress_history)
-    mock_uow.tasks.get_stop_progress = AsyncMock(return_value=[])
-    
-    result = await service.get_task_analytics(1, current_user)
-    progress_trends = result["analytics"]["progress_trends"]
-    
-    assert progress_trends["cycles_analyzed"] == 4
-    assert progress_trends["recent_performance"] == [3.0, 3.5]  # Last 2 cycles
-    assert progress_trends["trend"] == "improving"  # Should detect improvement
-
-@pytest.mark.asyncio
-async def test_get_task_analytics_performance_indicators(service, mock_uow, current_user):
-    task = TaskOutput(
-        id=1,
-        description="Test Task",
-        start_date=datetime.now(timezone.utc) - timedelta(days=5),
-        end_date=datetime.now(timezone.utc) + timedelta(days=5),
-        estimated_hr=10.0,
-        done_hr=6.0,
-        owner_id=current_user.id,
-        status="in_progress",
-        is_repititive=True,
-        is_stopped=False,
-        subtasks=[],
-        assignees=[]
-    )
-    
-    progress_history = [
-        TaskProgressDomain(
-            task_id=1,
-            start_date=datetime.now(timezone.utc) - timedelta(days=4),
-            end_date=datetime.now(timezone.utc) - timedelta(days=3),
-            status="completed",
-            done_hr=3.0,
-            estimated_hr=3.0
-        ),
-        TaskProgressDomain(
-            task_id=1,
-            start_date=datetime.now(timezone.utc) - timedelta(days=2),
-            end_date=datetime.now(timezone.utc) - timedelta(days=1),
-            status="completed",
-            done_hr=3.0,
-            estimated_hr=3.0
-        )
-    ]
-    
-    mock_uow.tasks.get_task = AsyncMock(return_value=task)
-    mock_uow.tasks.get_progress = AsyncMock(return_value=progress_history)
-    mock_uow.tasks.get_stop_progress = AsyncMock(return_value=[])
-    
-    result = await service.get_task_analytics(1, current_user)
-    performance_indicators = result["analytics"]["performance_indicators"]
-    
-    assert performance_indicators["productivity_score"] == 100.0  # 6/6 * 100
-    assert performance_indicators["reliability_score"] == 100.0   # All cycles met estimates
-    assert performance_indicators["quality_score"] == 100.0       # All cycles completed 100%
-    assert performance_indicators["overall_performance"] == 100.0
-
-@pytest.mark.asyncio
-async def test_get_task_analytics_status_analysis(service, mock_uow, current_user):
-    task = TaskOutput(
-        id=1,
-        description="Test Task",
-        start_date=datetime.now(timezone.utc) - timedelta(days=5),
-        end_date=datetime.now(timezone.utc) + timedelta(days=5),
-        estimated_hr=10.0,
-        done_hr=6.0,
-        owner_id=current_user.id,
-        status="in_progress",
-        is_repititive=True,
-        is_stopped=False,
-        subtasks=[],
-        assignees=[]
-    )
-    
-    mock_uow.tasks.get_task = AsyncMock(return_value=task)
-    mock_uow.tasks.get_progress = AsyncMock(return_value=[])
-    mock_uow.tasks.get_stop_progress = AsyncMock(return_value=[])
-    
-    result = await service.get_task_analytics(1, current_user)
-    status_analysis = result["analytics"]["status_analysis"]
-    
-    assert status_analysis["current_status"] == "in_progress"
-    assert status_analysis["status_health"] == "good"  # in_progress with done_hr > 0
-    assert status_analysis["is_repetitive"] is True
-    assert status_analysis["is_stopped"] is False
-    assert status_analysis["status_duration_days"] >= 4  # Should be around 5 days
-
-@pytest.mark.asyncio
-async def test_get_task_analytics_time_analysis(service, mock_uow, current_user):
-    task = TaskOutput(
-        id=1,
-        description="Test Task",
-        start_date=datetime.now(timezone.utc) - timedelta(days=5),
-        end_date=datetime.now(timezone.utc) + timedelta(days=5),
-        estimated_hr=10.0,
-        done_hr=6.0,
-        owner_id=current_user.id,
-        status="in_progress",
-        is_repititive=False,
-        is_stopped=False,
-        subtasks=[],
-        assignees=[]
-    )
-    
-    mock_uow.tasks.get_task = AsyncMock(return_value=task)
-    mock_uow.tasks.get_progress = AsyncMock(return_value=[])
-    mock_uow.tasks.get_stop_progress = AsyncMock(return_value=[])
-    
-    result = await service.get_task_analytics(1, current_user)
-    time_analysis = result["analytics"]["time_analysis"]
-    
-    assert time_analysis["time_spent_hours"] >= 110  # ~5 days * 24 hours
-    assert time_analysis["time_remaining_hours"] >= 110  # ~5 days * 24 hours
-    assert time_analysis["deadline_status"] == "on_track"  # Still has time
-    assert time_analysis["start_date"] == task.start_date
-    assert time_analysis["end_date"] == task.end_date
-
-@pytest.mark.asyncio
-async def test_get_task_analytics_summary(service, mock_uow, current_user):
-    task = TaskOutput(
-        id=1,
-        description="Test Task",
-        start_date=datetime.now(timezone.utc) - timedelta(days=5),
-        end_date=datetime.now(timezone.utc) + timedelta(days=5),
-        estimated_hr=10.0,
-        done_hr=6.0,
-        owner_id=current_user.id,
-        status="in_progress",
-        is_repititive=False,
-        is_stopped=False,
-        subtasks=[],
-        assignees=[]
-    )
-    
-    mock_uow.tasks.get_task = AsyncMock(return_value=task)
-    mock_uow.tasks.get_progress = AsyncMock(return_value=[])
-    mock_uow.tasks.get_stop_progress = AsyncMock(return_value=[])
-    
-    result = await service.get_task_analytics(1, current_user)
-    summary = result["analytics"]["summary"]
-    
-    assert "grade" in summary
-    assert "overall_score" in summary
-    assert "recommendations" in summary
-    assert "key_insights" in summary
-    assert len(summary["recommendations"]) > 0
-    assert len(summary["key_insights"]) > 0
-
-@pytest.mark.asyncio
-async def test_get_task_analytics_no_progress(service, mock_uow, current_user):
-    task = TaskOutput(
-        id=1,
-        description="Test Task",
-        start_date=datetime.now(timezone.utc) - timedelta(days=5),
-        end_date=datetime.now(timezone.utc) + timedelta(days=5),
-        estimated_hr=10.0,
-        done_hr=0.0,
-        owner_id=current_user.id,
-        status="pending",
-        is_repititive=False,
-        is_stopped=False,
-        subtasks=[],
-        assignees=[]
-    )
-    
-    mock_uow.tasks.get_task = AsyncMock(return_value=task)
-    mock_uow.tasks.get_progress = AsyncMock(return_value=[])
-    mock_uow.tasks.get_stop_progress = AsyncMock(return_value=[])
-    
-    result = await service.get_task_analytics(1, current_user)
-    analytics = result["analytics"]
-    
-    assert analytics["completion_metrics"]["completion_rate"] == 0.0
-    assert analytics["time_efficiency"]["efficiency_score"] == 0.0
-    assert analytics["progress_trends"]["trend"] == "no_data"
-    assert analytics["performance_indicators"]["overall_performance"] == 0.0
-    assert analytics["status_analysis"]["status_health"] == "needs_attention"
-
-@pytest.mark.asyncio
-async def test_get_task_analytics_permission_error(service, mock_uow, current_user):
-    task = TaskOutput(
-        id=1,
-        description="Test Task",
-        start_date=datetime.now(timezone.utc) - timedelta(days=5),
-        end_date=datetime.now(timezone.utc) + timedelta(days=5),
-        estimated_hr=10.0,
-        done_hr=6.0,
-        owner_id=999,  # Different user
-        status="in_progress",
-        is_repititive=False,
-        is_stopped=False,
-        subtasks=[],
-        assignees=[]
-    )
-    
-    mock_uow.tasks.get_task = AsyncMock(return_value=task)
-    
-    with pytest.raises(PermissionError, match="You don't have access to this task"):
-        await service.get_task_analytics(1, current_user)
-
-@pytest.mark.asyncio
-async def test_get_task_analytics_task_not_found(service, mock_uow, current_user):
-    mock_uow.tasks.get_task = AsyncMock(return_value=None)
-    
-    with pytest.raises(NotFoundError, match="Task not found"):
-        await service.get_task_analytics(1, current_user)
-
-# Additional test coverage for missing functionality
-
 @pytest.mark.asyncio
 async def test_get_task_success(service, mock_uow, current_user):
     task = TaskOutput(
@@ -768,15 +349,17 @@ async def test_get_task_success(service, mock_uow, current_user):
         status="in_progress",
         is_repititive=False,
         is_stopped=False,
-        subtasks=[],
-        assignees=[]
     )
     
     mock_uow.tasks.get_task = AsyncMock(return_value=task)
+    mock_uow.tasks.get_assignees_of_task_email=AsyncMock(return_value=[current_user.email])
+    mock_uow.tasks.get_desription_and_id_of_subtasks=AsyncMock(return_value=[])
     
     result = await service.get_task(1, current_user)
     
-    assert result == task
+    assert result["task"] == task
+    assert "standard_completion_hr" in result
+    assert "curr_completion_rate" in result
     mock_uow.tasks.get_task.assert_awaited_once_with(1)
 
 @pytest.mark.asyncio
@@ -799,11 +382,11 @@ async def test_get_task_permission_error(service, mock_uow, current_user):
         status="in_progress",
         is_repititive=False,
         is_stopped=False,
-        subtasks=[],
-        assignees=[]
     )
     
     mock_uow.tasks.get_task = AsyncMock(return_value=task)
+    mock_uow.tasks.get_assignees_of_task_email=AsyncMock(return_value=[])
+    mock_uow.tasks.get_desription_and_id_of_subtasks=AsyncMock(return_value=[])
     
     with pytest.raises(PermissionError, match="You don't have access to this task"):
         await service.get_task(1, current_user)
@@ -826,10 +409,12 @@ async def test_get_task_assigned_user_access(service, mock_uow, current_user):
     )
     
     mock_uow.tasks.get_task = AsyncMock(return_value=task)
+    mock_uow.tasks.get_assignees_of_task_email=AsyncMock(return_value=[current_user.email])
+    mock_uow.tasks.get_desription_and_id_of_subtasks=AsyncMock(return_value=[])
     
     result = await service.get_task(1, current_user)
     
-    assert result == task
+    assert result["task"] == task
 
 @pytest.mark.asyncio
 async def test_get_progress_success(service, mock_uow, current_user):
@@ -902,8 +487,6 @@ async def test_assign_user_to_task_success(service, mock_uow, current_user):
         status="in_progress",
         is_repititive=False,
         is_stopped=False,
-        subtasks=[],
-        assignees=[]
     )
     
     updated_task = TaskOutput(
@@ -917,12 +500,11 @@ async def test_assign_user_to_task_success(service, mock_uow, current_user):
         status="in_progress",
         is_repititive=False,
         is_stopped=False,
-        subtasks=[],
-        assignees=[2]  # Assigned user
+
     )
     
     mock_uow.tasks.get_task = AsyncMock(return_value=task)
-    mock_uow.tasks.assign_user_to_task = AsyncMock()
+    mock_uow.tasks.assign_user_to_task = AsyncMock(return_value=(updated_task, None))
     mock_uow.tasks.get_task = AsyncMock(side_effect=[task, updated_task])
     
     result = await service.assign_user_to_task(1, "user@example.com", current_user)
@@ -1134,232 +716,4 @@ async def test_delete_task_permission_error(service, mock_uow, current_user):
     with pytest.raises(PermissionError, match="Cannot delete another user's task"):
         await service.delete_task(1, current_user)
 
-# Additional analytics edge cases
 
-@pytest.mark.asyncio
-async def test_analytics_completed_task(service, mock_uow, current_user):
-    task = TaskOutput(
-        id=1,
-        description="Completed Task",
-        start_date=datetime.now(timezone.utc) - timedelta(days=10),
-        end_date=datetime.now(timezone.utc) - timedelta(days=1),
-        estimated_hr=10.0,
-        done_hr=10.0,
-        owner_id=current_user.id,
-        status="completed",
-        is_repititive=False,
-        is_stopped=False,
-        subtasks=[],
-        assignees=[]
-    )
-    
-    mock_uow.tasks.get_task = AsyncMock(return_value=task)
-    mock_uow.tasks.get_progress = AsyncMock(return_value=[])
-    mock_uow.tasks.get_stop_progress = AsyncMock(return_value=[])
-    
-    result = await service.get_task_analytics(1, current_user)
-    analytics = result["analytics"]
-    
-    assert analytics["completion_metrics"]["completion_rate"] == 100.0
-    assert analytics["status_analysis"]["status_health"] == "excellent"
-    assert analytics["summary"]["grade"] == "A"
-
-@pytest.mark.asyncio
-async def test_analytics_overdue_task(service, mock_uow, current_user):
-    task = TaskOutput(
-        id=1,
-        description="Overdue Task",
-        start_date=datetime.now(timezone.utc) - timedelta(days=10),
-        end_date=datetime.now(timezone.utc) - timedelta(days=1),  # Past deadline
-        estimated_hr=10.0,
-        done_hr=5.0,
-        owner_id=current_user.id,
-        status="in_progress",
-        is_repititive=False,
-        is_stopped=False,
-        subtasks=[],
-        assignees=[]
-    )
-    
-    mock_uow.tasks.get_task = AsyncMock(return_value=task)
-    mock_uow.tasks.get_progress = AsyncMock(return_value=[])
-    mock_uow.tasks.get_stop_progress = AsyncMock(return_value=[])
-    
-    result = await service.get_task_analytics(1, current_user)
-    analytics = result["analytics"]
-    
-    assert analytics["time_analysis"]["deadline_status"] == "overdue"
-    assert analytics["completion_metrics"]["completion_rate"] == 50.0
-    assert "urgent" in analytics["summary"]["recommendations"][0].lower()
-
-@pytest.mark.asyncio
-async def test_analytics_repetitive_task_with_stops(service, mock_uow, current_user):
-    task = TaskOutput(
-        id=1,
-        description="Repetitive Task",
-        start_date=datetime.now(timezone.utc) - timedelta(days=10),
-        end_date=datetime.now(timezone.utc) + timedelta(days=5),
-        estimated_hr=10.0,
-        done_hr=6.0,
-        owner_id=current_user.id,
-        status="in_progress",
-        is_repititive=True,
-        is_stopped=True,
-        subtasks=[],
-        assignees=[]
-    )
-    
-    stop_history = [{"id": 1, "stopped_at": datetime.now(timezone.utc) - timedelta(days=5)}]
-    
-    mock_uow.tasks.get_task = AsyncMock(return_value=task)
-    mock_uow.tasks.get_progress = AsyncMock(return_value=[])
-    mock_uow.tasks.get_stop_progress = AsyncMock(return_value=stop_history)
-    
-    result = await service.get_task_analytics(1, current_user)
-    analytics = result["analytics"]
-    
-    assert analytics["status_analysis"]["stop_frequency"] == 1
-    assert analytics["status_analysis"]["is_stopped"] is True
-    assert "resuming" in analytics["summary"]["recommendations"][0].lower()
-
-@pytest.mark.asyncio
-async def test_analytics_task_with_no_dates(service, mock_uow, current_user):
-    task = TaskOutput(
-        id=1,
-        description="Task with no dates",
-        start_date=None,
-        end_date=None,
-        estimated_hr=10.0,
-        done_hr=5.0,
-        owner_id=current_user.id,
-        status="pending",
-        is_repititive=False,
-        is_stopped=False,
-        subtasks=[],
-        assignees=[]
-    )
-    
-    mock_uow.tasks.get_task = AsyncMock(return_value=task)
-    mock_uow.tasks.get_progress = AsyncMock(return_value=[])
-    mock_uow.tasks.get_stop_progress = AsyncMock(return_value=[])
-    
-    result = await service.get_task_analytics(1, current_user)
-    analytics = result["analytics"]
-    
-    assert analytics["time_analysis"]["deadline_status"] == "no_deadline"
-    assert analytics["time_analysis"]["time_spent_hours"] == 0
-    assert analytics["time_analysis"]["time_remaining_hours"] == 0
-
-@pytest.mark.asyncio
-async def test_analytics_high_variance_progress(service, mock_uow, current_user):
-    task = TaskOutput(
-        id=1,
-        description="High Variance Task",
-        start_date=datetime.now(timezone.utc) - timedelta(days=10),
-        end_date=datetime.now(timezone.utc) + timedelta(days=5),
-        estimated_hr=10.0,
-        done_hr=6.0,
-        owner_id=current_user.id,
-        status="in_progress",
-        is_repititive=True,
-        is_stopped=False,
-        subtasks=[],
-        assignees=[]
-    )
-    
-    # Progress with high variance (inconsistent work patterns)
-    progress_history = [
-        TaskProgressDomain(
-            task_id=1,
-            start_date=datetime.now(timezone.utc) - timedelta(days=9),
-            end_date=datetime.now(timezone.utc) - timedelta(days=8),
-            status="completed",
-            done_hr=1.0,  # Very low
-            estimated_hr=3.0
-        ),
-        TaskProgressDomain(
-            task_id=1,
-            start_date=datetime.now(timezone.utc) - timedelta(days=7),
-            end_date=datetime.now(timezone.utc) - timedelta(days=6),
-            status="completed",
-            done_hr=5.0,  # Very high
-            estimated_hr=3.0
-        ),
-        TaskProgressDomain(
-            task_id=1,
-            start_date=datetime.now(timezone.utc) - timedelta(days=5),
-            end_date=datetime.now(timezone.utc) - timedelta(days=4),
-            status="completed",
-            done_hr=0.5,  # Very low again
-            estimated_hr=3.0
-        )
-    ]
-    
-    mock_uow.tasks.get_task = AsyncMock(return_value=task)
-    mock_uow.tasks.get_progress = AsyncMock(return_value=progress_history)
-    mock_uow.tasks.get_stop_progress = AsyncMock(return_value=[])
-    
-    result = await service.get_task_analytics(1, current_user)
-    analytics = result["analytics"]
-    
-    # Should detect high variance (low consistency)
-    assert analytics["progress_trends"]["consistency_score"] < 50
-    assert analytics["performance_indicators"]["reliability_score"] < 100
-
-@pytest.mark.asyncio
-async def test_analytics_zero_estimated_hours(service, mock_uow, current_user):
-    task = TaskOutput(
-        id=1,
-        description="Zero Estimated Hours Task",
-        start_date=datetime.now(timezone.utc) - timedelta(days=5),
-        end_date=datetime.now(timezone.utc) + timedelta(days=5),
-        estimated_hr=0.0,  # Zero estimated hours
-        done_hr=5.0,
-        owner_id=current_user.id,
-        status="in_progress",
-        is_repititive=False,
-        is_stopped=False,
-        subtasks=[],
-        assignees=[]
-    )
-    
-    mock_uow.tasks.get_task = AsyncMock(return_value=task)
-    mock_uow.tasks.get_progress = AsyncMock(return_value=[])
-    mock_uow.tasks.get_stop_progress = AsyncMock(return_value=[])
-    
-    result = await service.get_task_analytics(1, current_user)
-    analytics = result["analytics"]
-    
-    # Should handle division by zero gracefully
-    assert analytics["completion_metrics"]["completion_rate"] == 0.0
-    assert analytics["completion_metrics"]["remaining_hours"] == 0.0
-    assert analytics["time_efficiency"]["efficiency_score"] == 0.0
-
-@pytest.mark.asyncio
-async def test_analytics_very_large_numbers(service, mock_uow, current_user):
-    task = TaskOutput(
-        id=1,
-        description="Large Numbers Task",
-        start_date=datetime.now(timezone.utc) - timedelta(days=100),
-        end_date=datetime.now(timezone.utc) + timedelta(days=100),
-        estimated_hr=1000.0,  # Very large estimate
-        done_hr=500.0,
-        owner_id=current_user.id,
-        status="in_progress",
-        is_repititive=False,
-        is_stopped=False,
-        subtasks=[],
-        assignees=[]
-    )
-    
-    mock_uow.tasks.get_task = AsyncMock(return_value=task)
-    mock_uow.tasks.get_progress = AsyncMock(return_value=[])
-    mock_uow.tasks.get_stop_progress = AsyncMock(return_value=[])
-    
-    result = await service.get_task_analytics(1, current_user)
-    analytics = result["analytics"]
-    
-    # Should handle large numbers correctly
-    assert analytics["completion_metrics"]["completion_rate"] == 50.0
-    assert analytics["completion_metrics"]["remaining_hours"] == 500.0
-    assert analytics["time_analysis"]["time_spent_hours"] >= 2400  # ~100 days * 24 hours

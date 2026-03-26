@@ -25,27 +25,27 @@ class User(Base):
     verified=Column(Boolean, default=False)
     role=Column(String, default="user")
 
-    assigned_tasks = relationship(
-        "Task",
-        secondary="task_assignees",
-        back_populates="assignees",
-        lazy="selectin",
-    )
-    my_tasks = relationship(
-        "Task",
-        back_populates="owner",
-        cascade="all, delete-orphan",
-        lazy="selectin",
-    )
-    tokens = relationship(
-        "Token",
-        back_populates="user",
-        cascade="all, delete-orphan",
-        lazy="selectin",
-    )
-    day_plans = relationship(
-        "DayPlan", back_populates="user", cascade="all, delete-orphan", lazy="selectin"
-    )
+    # assigned_tasks = relationship(
+    #     "Task",
+    #     secondary="task_assignees",
+    #     back_populates="assignees",
+    #     lazy="selectin",
+    # )
+    # my_tasks = relationship(
+    #     "Task",
+    #     back_populates="owner",
+    #     cascade="all, delete-orphan",
+    #     lazy="selectin",
+    # )
+    # tokens = relationship(
+    #     "Token",
+    #     back_populates="user",
+    #     cascade="all, delete-orphan",
+    #     lazy="selectin",
+    # )
+    # day_plans = relationship(
+    #     "DayPlan", back_populates="user", cascade="all, delete-orphan", lazy="selectin"
+    # )
 
 
 class Task(Base):
@@ -62,6 +62,8 @@ class Task(Base):
     owner_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"))
     main_task_id = Column(Integer, ForeignKey("tasks.id", ondelete="CASCADE"), nullable=True)
     is_stopped = Column(Boolean, default=False, nullable=False)
+    ai_feedback = Column(String, nullable=True)
+    ai_recommendations = Column(String, nullable=True)
 
     main_task = relationship("Task", remote_side=[id], back_populates="subtasks", lazy="selectin")
     subtasks = relationship(
@@ -76,10 +78,10 @@ class Task(Base):
     stop_progress = relationship(
         "StopProgress", back_populates="task", cascade="all, delete-orphan", lazy="selectin"
     )
-    assignees = relationship(
-        "User", secondary="task_assignees", back_populates="assigned_tasks", lazy="selectin"
-    )
-    owner = relationship("User", foreign_keys=[owner_id], back_populates="my_tasks", lazy="selectin")
+    # assignees = relationship(
+    #     "User", secondary="task_assignees", back_populates="assigned_tasks", lazy="selectin"
+    # )
+    # owner = relationship("User", foreign_keys=[owner_id], back_populates="my_tasks", lazy="selectin")
 
 
 task_assignees = Table(
@@ -96,7 +98,7 @@ class DayPlan(Base):
     id = Column(Integer, primary_key=True, index=True)
     date = Column(Date, index=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"))
-    user = relationship("User", back_populates="day_plans", lazy="selectin")
+    # user = relationship("User", back_populates="day_plans", lazy="selectin")
 
     times = relationship("TimeLog", back_populates="plan", cascade="all, delete-orphan", lazy="selectin")
 
@@ -110,6 +112,7 @@ class TimeLog(Base):
     task_id = Column(Integer, ForeignKey("tasks.id", ondelete="CASCADE"))
     plan_id = Column(Integer, ForeignKey("plans.id", ondelete="CASCADE"))
     done = Column(Boolean, default=False)
+    description = Column(String, nullable=True)
 
     plan = relationship("DayPlan", back_populates="times", lazy="selectin")
     task = relationship("Task", back_populates="time_logs", lazy="selectin")
@@ -148,4 +151,4 @@ class Token(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     expired_at = Column(DateTime(timezone=True))
 
-    user = relationship("User", back_populates="tokens", lazy="selectin")
+    # user = relationship("User", back_populates="tokens", lazy="selectin")

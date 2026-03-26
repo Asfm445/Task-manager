@@ -36,13 +36,9 @@ def orm_to_domain_task_output(orm_task: ORMTask) -> TaskOutput:
         is_stopped=orm_task.is_stopped,
         start_date=orm_task.start_date,
         main_task_id=orm_task.main_task_id,
-        subtasks=(
-            [subtask.id for subtask in orm_task.subtasks] if orm_task.subtasks else []
-        ),
-        assignees=(
-            [user.id for user in orm_task.assignees] if orm_task.assignees else []
-        ),
         owner_id=orm_task.owner_id,
+        ai_feedback=orm_task.ai_feedback,
+        ai_recommendations=orm_task.ai_recommendations,
     )
 
 

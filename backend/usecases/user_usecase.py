@@ -16,14 +16,13 @@ class UserUsecase:
         self.email_service=email_service
 
     async def Register(self, user: UserRegister):
-        if await self.repo.FindByEmail(user.email):
-            raise BadRequestError("Email already exist")
-        if await self.repo.FindByUsername(user.username):
-            raise BadRequestError("Username already exist")
+        if await self.repo.CheckEmailAndUsername(user.email,user.username):
+            raise BadRequestError("Email or Username already exist")
+        
         data={"username":user.username,"email":user.email}
         token=self.jwt_service.create_verification_token(data)
         result = await self.email_service.send_verification_email(user.username,user.email, token["token"])
-        print(result)
+        # print(result)
         if not result:
             raise BadRequestError("invalid Email")
         token["token"]=self.jwt_service.hash_token(token["token"])
@@ -104,13 +103,17 @@ class UserUsecase:
             raise BadRequestError(err)
         
 
-        result = await self.tokenRepo.FindByID(payload["id"])
-        if not result:
+        dbtoken = await self.tokenRepo.FindByID(payload["id"])
+        if not dbtoken:
             raise BadRequestError("Invalid token")
         
 
-        dbtoken, user = result
+        
         if not self.jwt_service.verify_token(token, dbtoken.token):
+            raise BadRequestError("Invalid token")
+
+        user = await self.repo.find_by_id(dbtoken.user_id)
+        if not user:
             raise BadRequestError("Invalid token")
 
         # Optional extra check for stolen tokens
@@ -143,11 +146,14 @@ class UserUsecase:
         payload, err=self.jwt_service.decode_token(token)
         if not payload:
             raise BadRequestError(err)
-        result = await self.tokenRepo.FindByID(payload["id"])
-        if not result:
+        dbtoken = await self.tokenRepo.FindByID(payload["id"])
+        if not dbtoken:
             raise BadRequestError("Invalid token")
-        dbtoken, user = result
         if not self.jwt_service.verify_token(token, dbtoken.token):
+            raise BadRequestError("Invalid token")
+
+        user=await self.repo.find_by_id(dbtoken.user_id)
+        if not user:
             raise BadRequestError("Invalid token")
 
         # Optional extra check for stolen tokens
@@ -179,11 +185,14 @@ class UserUsecase:
         payload, err=self.jwt_service.decode_token(token)
         if not payload:
             raise BadRequestError(err)
-        result = await self.tokenRepo.FindByID(payload["id"])
-        if not result:
+        dbtoken = await self.tokenRepo.FindByID(payload["id"])
+        if not dbtoken:
             raise BadRequestError("Invalid token")
-        dbtoken, user = result
         if not self.jwt_service.verify_token(token, dbtoken.token):
+            raise BadRequestError("Invalid token")
+
+        user=await self.repo.find_by_id(dbtoken.user_id)
+        if not user:
             raise BadRequestError("Invalid token")
 
         # Optional extra check for stolen tokens

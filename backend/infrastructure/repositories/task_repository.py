@@ -9,8 +9,9 @@ from infrastructure.dto.task_dto import (
     orm_to_domain_task_output,
     orm_to_domain_task_progress,
 )
-from infrastructure.models.model import StopProgress, Task, TaskProgress, User
-from sqlalchemy import and_
+
+from infrastructure.models.model import StopProgress, Task, TaskProgress, User, task_assignees
+from sqlalchemy import and_, or_, exists, select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
@@ -23,35 +24,85 @@ class TaskRepository(AbstractTaskRepository):
     async def get_task(self, task_id: int) -> Optional[TaskOutput]:
         result = await self.db.execute(
             select(Task)
-            .options(
-                selectinload(Task.subtasks),
-                selectinload(Task.assignees)
-            )
             .filter(Task.id == task_id)
         )
         task = result.scalar_one_or_none()
         return orm_to_domain_task_output(task) if task else None
 
-    async def get_tasks(self, skip: int = 0, limit: Optional[int] = None, fetch_all: bool = False) -> List[TaskOutput]:
-        query = select(Task)
-        if not fetch_all:
-            query = query.filter(Task.status!="completed")
+    async def get_tasks(
+        self, 
+        user_id: int, 
+        skip: int = 0, 
+        limit: Optional[int] = None, 
+        fetch_all: bool = False, 
+        search_name: str = '',
+        uncompleted: bool = False,
+        completed: bool = False
+    ) -> List[TaskOutput]:
         
-        # Conditionally apply offset and limit
+        # 1. Use EXISTS instead of IN for the subquery (usually faster in Postgres)
+        assignee_exists = exists().where(
+            and_(
+                task_assignees.c.task_id == Task.id,
+                task_assignees.c.user_id == user_id
+            )
+        )
+
+        # Base query: Ownership or Assignment
+        query = select(Task).where(or_(Task.owner_id == user_id, assignee_exists))
+
+        if not fetch_all:
+            # 2. Optimized Status Filtering
+            if completed ^ uncompleted:  # XOR: only if exactly one is True
+                status_filter = "completed" if completed else "uncompleted" # adjust logic if needed
+                if completed:
+                    query = query.where(Task.status == "completed")
+                else:
+                    query = query.where(Task.status != "completed")
+
+            # 3. Optimized Search
+            if search_name:
+                words = [f"%{w}%" for w in search_name.split() if w]
+                if words:
+                    # Combining with AND often yields better results for searches, 
+                    # but staying with OR as per your original logic:
+                    query = query.where(or_(*(Task.description.ilike(w) for w in words)))
+
+        # 4. Pagination
         query = query.offset(skip)
         if limit is not None:
             query = query.limit(limit)
 
-        result = await self.db.execute(
-            query
-            .options(
-                selectinload(Task.assignees),
-                selectinload(Task.owner),
-                selectinload(Task.subtasks),
-            )
-        )
-        tasks = result.scalars().all()
+        # 5. Execution Optimization
+        result = await self.db.execute(query)
+        
+        # Use unique() if you have joins to prevent duplicate objects, 
+        # though not strictly needed for this specific query.
+        tasks = result.scalars().unique().all() 
+        
         return [orm_to_domain_task_output(task) for task in tasks]
+    
+
+    async def get_assignees_of_task(self, task_id: int) -> List[int]:
+        result = await self.db.execute(
+            select(task_assignees.c.user_id).where(task_assignees.c.task_id == task_id)
+        )
+        return [row[0] for row in result.fetchall()]
+    
+    async def get_assignees_of_task_email(self, task_id: int) -> List[str]:
+        result = await self.db.execute(
+            select(User.email).where(task_assignees.c.task_id == task_id)
+        )
+        return [row[0] for row in result.fetchall()]
+
+
+    async def get_desription_and_id_of_subtasks(self, task_id: int) -> List[str]:
+        result = await self.db.execute(
+            select(Task.description, Task.id).where(Task.main_task_id == task_id)
+        )
+        return result.fetchall()
+    
+        
 
 
     async def create_task(self, task: TaskCreateInput, owner_id: int) -> TaskOutput:
@@ -87,12 +138,22 @@ class TaskRepository(AbstractTaskRepository):
             select(User).filter(User.email == assignee_email)
         )).scalar_one_or_none()
 
+
+
         if not task or not user:
             return None, "Task or User not found"
-        if user in task.assignees:
-            return None, "User already assigned"
+        assignee_exists = exists().where(
+            and_(
+                task_assignees.c.task_id == task_id,
+                task_assignees.c.user_id == user.id
+            )
+        )
 
-        task.assignees.append(user)
+        exist=await self.db.execute(select(assignee_exists))
+        if exist.scalar_one():
+            return None, "User is already an assignee of this task"
+        
+        await self.db.execute(task_assignees.insert().values(task_id=task_id, user_id=user.id))
         await self.db.flush()
         await self.db.refresh(task)
         return orm_to_domain_task_output(task), None
@@ -131,14 +192,25 @@ class TaskRepository(AbstractTaskRepository):
             select(StopProgress).filter(StopProgress.task_id == task_id)
         )).scalar_one_or_none()
 
-    async def get_progress(self, task_id: int, skip: int = 0, limit: int = 100):
-        result = await self.db.execute(
-            select(TaskProgress)
-            .filter(TaskProgress.task_id == task_id)
-            .offset(skip)
-            .limit(limit)
+    async def get_progress(self, task_id: int, skip: int = 0,limit=None):
+        if limit:
+            result = await self.db.execute(
+                select(TaskProgress)
+                .filter(TaskProgress.task_id == task_id).order_by(TaskProgress.end_date.desc())
+                .offset(skip)
+                .limit(limit)
+            )
+        else:
+            result = await self.db.execute(
+                select(TaskProgress)
+                .filter(TaskProgress.task_id == task_id).order_by(TaskProgress.end_date.desc())
+                .offset(skip)
+                .limit(limit)
         )
-        return [ domain_to_orm_task_progress(progress)  for progress in result.scalars().all()]
+        total = await self.db.execute(
+            select(func.count(TaskProgress.id)).filter(TaskProgress.task_id == task_id)
+        )
+        return {"total": total.scalar_one(), "data": [ orm_to_domain_task_progress(progress)  for progress in result.scalars().all()]}
     
 
 

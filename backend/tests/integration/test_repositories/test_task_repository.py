@@ -78,7 +78,8 @@ async def test_assign_user_to_task(async_session):
     
     assert error is None
     assert assigned_task is not None
-    assert len(assigned_task.assignees) == 1
+
+    assert len(await repo.get_assignees_of_task(task.id)) == 1
 
 
 @pytest.mark.asyncio

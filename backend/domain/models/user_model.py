@@ -44,8 +44,6 @@ class User:
     verified: bool
     role: str
     hashed_password: str
-    assigned_tasks: List[int] = field(default_factory=list)
-    my_tasks: List[int] = field(default_factory=list)
 
 
 @dataclass

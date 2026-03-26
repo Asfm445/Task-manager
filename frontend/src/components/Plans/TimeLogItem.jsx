@@ -45,7 +45,7 @@ export default function TimeLogItem({ log, formatTime, getDuration, onDone, onDe
             {getDuration(log.start_time, log.end_time)}
           </span>
         </div>
-        
+
         {/* Status indicator for mobile */}
         {done && (
           <span className="sm:hidden flex items-center gap-1 text-green-600 font-semibold text-sm">
@@ -53,18 +53,26 @@ export default function TimeLogItem({ log, formatTime, getDuration, onDone, onDe
           </span>
         )}
       </div>
-      
+
       {/* Bottom Row - Task and Actions */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="flex-1 min-w-0">
-          <span className="text-sm text-gray-700 font-medium block mb-1 sm:mb-0 sm:inline">
-            Task:{" "}
-          </span>
-          <span className="text-blue-700 font-semibold text-sm sm:text-base truncate block sm:inline">
-            {log.task?.description || log.task || log.task_id}
-          </span>
+        <div className="flex-1 min-w-0 flex flex-col gap-1">
+          <div>
+            <span className="text-sm text-gray-700 font-medium">Task: </span>
+            <span className="text-blue-700 font-semibold text-sm sm:text-base">
+              {log.task?.description || log.task || log.task_id}
+            </span>
+          </div>
+          {log.description && (
+            <div>
+              <span className="text-sm text-gray-700 font-medium">Activity: </span>
+              <span className="text-gray-600 text-sm italic">
+                {log.description}
+              </span>
+            </div>
+          )}
         </div>
-        
+
         <div className="flex items-center gap-2 self-end sm:self-auto">
           {done ? (
             <span className="hidden sm:flex items-center gap-1 text-green-600 font-semibold text-sm">
@@ -81,7 +89,7 @@ export default function TimeLogItem({ log, formatTime, getDuration, onDone, onDe
               <span className="hidden xs:inline">{loading ? "Marking..." : "Done"}</span>
             </button>
           )}
-          
+
           <button
             onClick={handleDelete}
             className="bg-red-500 hover:bg-red-600 text-white px-3 py-1.5 rounded-lg text-xs sm:text-sm font-semibold shadow transition disabled:opacity-60 flex items-center gap-1"

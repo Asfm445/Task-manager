@@ -9,6 +9,8 @@ from api.schemas.task_schema import (
     TaskProgress,
     TaskUpdate,
     paginatedTask,
+    PaginatedTaskProgress,
+    TaskWithProgress
 )
 from api.utilities.handle_service_result import handle_service_result
 from fastapi import APIRouter, Depends
@@ -43,12 +45,10 @@ async def read_tasks(
     return result
 
 
-@router.get("/{task_id}", response_model=Task)
+@router.get("/{task_id}", response_model=TaskWithProgress)
 @handle_service_result
 async def read_task(
     task_id: int,
-    completed: Optional[bool]=False,
-    uncompleted: Optional[bool]=False,
     service=Depends(get_task_service),
     current_user=Depends(get_current_user),
 ):
@@ -110,11 +110,12 @@ async def stop_task(
     service=Depends(get_task_service),
     current_user=Depends(get_current_user),
 ):
+   
     result = await service.toggle_task(task_id, True, current_user)
     return result
 
 
-@router.get("/progress/{task_id}", response_model=List[TaskProgress])
+@router.get("/progress/{task_id}", response_model=PaginatedTaskProgress)
 @handle_service_result
 async def task_progress(
     task_id: int,
@@ -124,31 +125,3 @@ async def task_progress(
     current_user=Depends(get_current_user),
 ):
     return await service.get_progress(task_id, current_user, skip, limit)
-
-@router.get("/analytics/{task_id}")
-@handle_service_result
-async def task_analytics(
-    task_id: int,
-    service=Depends(get_task_service),
-    current_user=Depends(get_current_user),
-) -> Dict[str, Any]:
-    """
-    Get comprehensive analytics for a single task including:
-    - Completion metrics
-    - Time efficiency analysis
-    - Progress trends
-    - Performance indicators
-    - Status analysis
-    - Time metrics
-    - Summary and recommendations
-    """
-    return await service.get_task_analytics(task_id, current_user)
-
-@router.get("/all/task/analytics")
-@handle_service_result
-async def get_all_tasks_analytics(
-    service=Depends(get_task_service),
-    current_user=Depends(get_current_user),
-):
-    print("+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++here the problem++++++++")
-    return await service.get_all_tasks_analytics(current_user)

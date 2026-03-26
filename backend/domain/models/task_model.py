@@ -25,6 +25,11 @@ class TaskCreateInput:
 
 
 @dataclass
+class SubTaskOutput:
+    id: int
+    description: str
+
+@dataclass
 class TaskOutput:
     id: int
     description: str
@@ -37,8 +42,13 @@ class TaskOutput:
     status: TaskStatus = TaskStatus.pending
     start_date: Optional[datetime] = None
     main_task_id: Optional[int] = None
-    subtasks: List[int] = field(default_factory=list)
-    assignees: List[int] = field(default_factory=list)
+    subtasks: Optional[List[SubTaskOutput]] = None
+    assignees: Optional[List[str]] = None
+    ai_feedback: Optional[str] = None
+    ai_recommendations: Optional[str] = None
+
+
+
     
 
 @dataclass
@@ -77,3 +87,12 @@ class TaskProgressDomain:
     status: TaskStatus
     done_hr: float
     estimated_hr: float
+
+@dataclass
+class TaskProgressAnalytics:
+    done_hr: float
+    estimated_hr: float
+    accuracy: float
+    stopped_hr: float
+    completion_rate: float
+

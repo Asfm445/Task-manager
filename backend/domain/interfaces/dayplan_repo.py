@@ -43,3 +43,7 @@ class AbstractDayPlanRepository(ABC):
     @abstractmethod
     async def get_all_dayplan(self, user):
         pass
+
+    @abstractmethod
+    async def get_time_logs_by_task_id_and_minimum_date(self, task_id: int, minimum_date: date) -> list[TimeLog]:
+        pass

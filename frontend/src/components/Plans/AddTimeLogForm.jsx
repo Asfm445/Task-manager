@@ -14,10 +14,10 @@ export default function AddTimeLogForm({ form, setForm, tasks, searchTasks, load
     if (searchTerm.trim() === "") {
       setFilteredTasks(tasks);
     } else {
-      async function search(){
-        let filtered=await searchTasks(searchTerm);
+      async function search() {
+        let filtered = await searchTasks(searchTerm);
         setFilteredTasks(filtered);
-      }search()
+      } search()
     }
   }, [searchTerm, tasks]);
 
@@ -49,6 +49,18 @@ export default function AddTimeLogForm({ form, setForm, tasks, searchTasks, load
             disabled={loading}
             className="w-full px-3 py-2 rounded border border-blue-200 focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:bg-gray-100 disabled:cursor-not-allowed"
             required
+          />
+        </div>
+        <div className="flex-1">
+          <label className="block text-sm font-medium text-blue-700 mb-1">Description</label>
+          <input
+            type="text"
+            name="description"
+            value={form.description || ''}
+            onChange={handleFormChange}
+            placeholder="Optional description"
+            className="w-full px-3 py-2 rounded border border-blue-200 focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:bg-gray-100 disabled:cursor-not-allowed"
+            disabled={loading}
           />
         </div>
         <div className="flex-1">

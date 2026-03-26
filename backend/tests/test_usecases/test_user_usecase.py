@@ -41,9 +41,7 @@ async def test_user_register_success():
     }
 
     # Setup async return values
-    mock_repo.FindByEmail.return_value = None
-    mock_repo.FindByUsername.return_value = None
-    mock_repo.get_all_users.return_value = []  # First user => superadmin
+    mock_repo.CheckEmailAndUsername.return_value = False
     mock_repo.Create.return_value = AsyncMock(id=1)  # async user creation
     mock_pass_service.hash_password.return_value = "hashed_pass"
     mock_jwt_service.create_verification_token.return_value = {"token": "rawtoken"}
@@ -119,9 +117,9 @@ async def test_user_register_email_exist():
     user_expected = {"username": "awel", "email": "awel@awel.com", "hashed_password": "hashed_pass","verified":True, "role":"user"}
 
     # Proper async mock setup
-    mock_repo.FindByEmail = AsyncMock(return_value=User(1, **user_expected))
+    mock_repo.CheckEmailAndUsername.return_value = True
 
-    with pytest.raises(BadRequestError, match="Email already exist"):
+    with pytest.raises(BadRequestError, match="Email or Username already exist"):
         await service.Register(UserRegister(**user_data))
     
     
@@ -211,7 +209,8 @@ async def test_refresh_token_success():
     user = MagicMock(id=42, username="awel", email="awel@example.com")
 
     mock_jwt_service.decode_token.return_value = payload, None
-    mock_token_repo.FindByID.return_value = [domain_token, user]
+    mock_token_repo.FindByID.return_value = domain_token
+    mock_repo.find_by_id.return_value = user
     mock_jwt_service.verify_token.return_value = True
     mock_jwt_service.create_access_token.return_value = "new_access_token"
     mock_token_repo.DeleteByID.return_value = None
@@ -275,7 +274,8 @@ async def test_refresh_token_token_user_mismatch():
     user = MagicMock(id=999, username="awel", email="awel@example.com")  # Different user ID
     
     mock_jwt_service.decode_token.return_value = payload, None
-    mock_token_repo.FindByID.return_value = [domain_token, user]
+    mock_token_repo.FindByID.return_value = domain_token
+    mock_repo.find_by_id.return_value = user
     mock_jwt_service.verify_token.return_value = True
 
     with pytest.raises(BadRequestError, match="Token-user mismatch"):
@@ -297,10 +297,11 @@ async def test_verify_email_success():
     user = MagicMock(id=42, username="awel", email="awel@example.com")
     
     mock_jwt_service.decode_token.return_value = payload, None
-    mock_token_repo.FindByID = AsyncMock(return_value=[domain_token, user])
+    mock_token_repo.FindByID.return_value = domain_token
+    mock_repo.find_by_id.return_value = user
     mock_jwt_service.verify_token.return_value = True
-    mock_repo.update_user = AsyncMock()
-    mock_token_repo.DeleteByID = AsyncMock()
+    mock_repo.update_user.return_value = None
+    mock_token_repo.DeleteByID.return_value = None
 
     result = await service.VerifyEmail(token)
 
@@ -430,22 +431,23 @@ async def test_reset_password_success():
     new_password = "newpassword123"
     payload = {"id": "token-id-123"}
     
-    domain_token = MagicMock(token="hashedtoken", user_id=42)
+    domain_token = MagicMock(id="token-id-123", token="hashedtoken", user_id=42)
     user = MagicMock(id=42, username="awel", email="awel@example.com")
     
     mock_jwt_service.decode_token.return_value = payload, None
-    mock_token_repo.FindByID.return_value = [domain_token, user]
+    mock_token_repo.FindByID.return_value = domain_token
+    mock_repo.find_by_id.return_value = user
     mock_jwt_service.verify_token.return_value = True
     mock_pass_service.hash_password.return_value = "new_hashed_password"
-    mock_repo.update_user = AsyncMock()
-    mock_token_repo.DeleteByID = AsyncMock()
+    mock_repo.update_user.return_value = AsyncMock(return_value=user)
+    mock_token_repo.DeleteByID.return_value = AsyncMock(return_value=None)
 
     result = await service.ResetPassword(token, new_password)
 
     assert result["message"] == "password changed successfully"
     mock_pass_service.hash_password.assert_called_once_with(new_password)
     mock_repo.update_user.assert_awaited_once_with(42, hashed_password="new_hashed_password")
-    # mock_token_repo.DeleteByID.assert_awaited_once_with("token-id-123")
+    mock_token_repo.DeleteByID.assert_awaited_once_with("token-id-123")
 
 @pytest.mark.asyncio
 async def test_reset_password_invalid_token():

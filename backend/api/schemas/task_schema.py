@@ -26,13 +26,20 @@ class TaskCreate(TaskBase):
     pass
 
 
+class SubTask(BaseModel):
+    id: int
+    description: str
+
+
 class Task(TaskBase):
     id: int
     done_hr: float
     is_stopped: bool = False
-    subtasks: Optional[List[int]] = []
-    assignees: Optional[List[int]] = []
+    subtasks: Optional[List[SubTask]] = []
+    assignees: Optional[List[str]] = []
     owner_id: Optional[int] = None  # <-- Add this
+    ai_feedback: Optional[str] = None
+    ai_recommendations: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -63,3 +70,30 @@ class TaskProgress(BaseModel):
     status: TaskStatus
     done_hr: float
     estimated_hr: float
+
+    model_config = ConfigDict(from_attributes=True)
+
+class PaginatedTaskProgress(BaseModel):
+    data: List[TaskProgress]
+    total: int
+
+class TaskProgressAnalytics(BaseModel):
+    done_hr: float
+    estimated_hr: float
+    accuracy: float
+    stopped_hr: float
+    completion_rate: float
+
+
+class AiRecommendation(BaseModel):
+    recommendations: str
+    feedback: str
+
+
+class TaskWithProgress(BaseModel):
+    task: Task
+    progress: Optional[TaskProgressAnalytics] = None
+    standard_completion_hr: float
+    ai_recommendation: Optional[AiRecommendation] = None
+    curr_completion_rate: float
+

@@ -10,7 +10,7 @@ class AbstractTaskRepository(ABC):
         pass
 
     @abstractmethod
-    async def get_tasks(self, skip: int = 0, limit: int = 100) -> List[TaskOutput]:
+    async def get_tasks(self, user_id: int, skip: int = 0, limit: Optional[int] = None, fetch_all: bool = False, search_name='',uncompleted=False,completed=False) -> List[TaskOutput]:
         pass
 
     @abstractmethod
@@ -58,4 +58,16 @@ class AbstractTaskRepository(ABC):
         pass
     @abstractmethod
     async def get_tasks_by_name(self, name: str, skip: int = 0, limit: int = 100) -> List[TaskOutput]:
+        pass
+        
+    @abstractmethod    
+    async def get_assignees_of_task(self, task_id: int) -> List[int]:
+        pass   
+
+    @abstractmethod
+    async def get_assignees_of_task_email(self, task_id: int) -> List[str]:
+        pass
+
+    @abstractmethod
+    async def get_desription_and_id_of_subtasks(self, task_id: int) -> List[str]:
         pass

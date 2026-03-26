@@ -40,6 +40,7 @@ def orm_to_domain_timelog(orm_timelog: dbTimelog) -> TimeLog:
         plan_id=orm_timelog.plan_id,
         task=orm_task_to_domain_time(orm_timelog.task),
         done=orm_timelog.done,
+        description=orm_timelog.description,
     )
 
 
@@ -60,6 +61,7 @@ def domain_to_orm_timelog(domain_timelog: TimeLog, orm_timelog=None):
     orm_timelog.end_time = domain_timelog.end_time
     orm_timelog.plan_id = domain_timelog.plan_id
     orm_timelog.done = domain_timelog.done
+    orm_timelog.description = domain_timelog.description
     return orm_timelog
 
 
@@ -70,5 +72,6 @@ def domain_to_orm_timelog_create(domain_timelog: TimeLogCreate, orm_timelog=None
     orm_timelog.start_time = domain_timelog.start_time
     orm_timelog.end_time = domain_timelog.end_time
     orm_timelog.plan_id = domain_timelog.plan_id
+    orm_timelog.description = domain_timelog.description
     # done field will use the default value from the ORM model (False)
     return orm_timelog

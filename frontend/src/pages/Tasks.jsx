@@ -1,80 +1,55 @@
 import { Hourglass, PlusCircle } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { useTasks } from "../TaskContext";
+import { useCallback, useMemo, useRef, useState } from "react";
+import { useTaskUI } from "../TaskContext";
+import { useTasksInfiniteQuery, useTaskMutations } from "../hooks/useTasksData";
 import Header from "../components/Header";
+import TaskItem from "../components/Tasks/TaskItem";
 import TaskForm from "../components/Tasks/TaskForm";
-import TaskList from "../components/Tasks/TaskList";
 
 export default function Tasks() {
+  const { searchTerm, setSearchTerm, filterStatus, setFilterStatus } = useTaskUI();
+
   const {
-    tasks,
-    loading,
-    loadingMore,
+    data,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    isLoading,
+    isError,
     error,
-    pagination,
-    fetchTasks,
-    loadMoreTasks,
-    resetTasks,
-  } = useTasks();
+    refetch
+  } = useTasksInfiniteQuery({ searchTerm, filterStatus });
+
+  const { createTask, updateTask, deleteTask } = useTaskMutations();
 
   const [showForm, setShowForm] = useState(false);
   const [editTask, setEditTask] = useState(null);
   const [message, setMessage] = useState("");
 
-  // search and filter UI state
-  const [searchTerm, setSearchTerm] = useState("");
-  const [filterStatus, setFilterStatus] = useState("uncompleted");
-
   const observerRef = useRef(null);
   const lastTaskRef = useCallback(
     (node) => {
-      if (loadingMore) return;
+      if (isLoading || isFetchingNextPage) return;
       if (observerRef.current) observerRef.current.disconnect();
 
       observerRef.current = new IntersectionObserver((entries) => {
-        if (entries[0].isIntersecting && pagination.hasMore) {
-          loadMoreTasks();
+        if (entries[0].isIntersecting && hasNextPage) {
+          fetchNextPage();
         }
       });
 
       if (node) observerRef.current.observe(node);
     },
-    [loadingMore, pagination.hasMore, loadMoreTasks]
+    [isLoading, isFetchingNextPage, hasNextPage, fetchNextPage]
   );
 
-  // Fetch tasks when filterStatus or searchTerm changes
-  useEffect(() => {
-    const fetchData = async () => {
-      resetTasks();
-      await fetchTasks({ 
-        reset: true, 
-        currentFilterStatus: filterStatus, 
-        currentSearchTerm: searchTerm 
-      });
-    };
+  const tasks = useMemo(() => {
+    return data?.pages.flatMap((page) => page.tasks) || [];
+  }, [data]);
 
-    fetchData();
-  }, [filterStatus]); // Only depend on filterStatus
+  const totalTasks = data?.pages[0]?.total || 0;
 
-  // Debounced search effect
-  useEffect(() => {
-    const id = setTimeout(() => {
-      const fetchData = async () => {
-        resetTasks();
-        await fetchTasks({ 
-          reset: true, 
-          currentFilterStatus: filterStatus, 
-          currentSearchTerm: searchTerm 
-        });
-      };
-
-      fetchData();
-    }, 350);
-
-    return () => clearTimeout(id);
-  }, [searchTerm]); // Only depend on searchTerm
-
-  if (loading && !loadingMore)
+  if (isLoading)
     return (
       <>
         <Header></Header>
@@ -86,28 +61,28 @@ export default function Tasks() {
 
   const handleCreate = async (data) => {
     try {
-      await fetchTasks.createTask(data);
+      await createTask(data);
       setMessage("Task created successfully");
       setShowForm(false);
       setTimeout(() => setMessage(""), 2000);
-    } catch (_) {}
+    } catch (_) { }
   };
 
   const handleUpdate = async (data) => {
     try {
-      await fetchTasks.updateTask(editTask.id, data);
+      await updateTask({ id: editTask.id, payload: data });
       setMessage("Task updated successfully");
       setEditTask(null);
       setTimeout(() => setMessage(""), 2000);
-    } catch (_) {}
+    } catch (_) { }
   };
 
   const handleDelete = async (id) => {
     try {
-      await fetchTasks.deleteTask(id);
+      await deleteTask(id);
       setMessage("Task deleted");
       setTimeout(() => setMessage(""), 1500);
-    } catch (_) {}
+    } catch (_) { }
   };
 
   const clearSearch = () => setSearchTerm("");
@@ -139,7 +114,7 @@ export default function Tasks() {
                 placeholder="Search tasks..."
                 className="w-full outline-none text-sm"
               />
-              {loadingMore && <span className="ml-2 text-xs text-blue-600">Searching...</span>}
+              {isFetchingNextPage && <span className="ml-2 text-xs text-blue-600">...</span>}
               {searchTerm && (
                 <button
                   onClick={clearSearch}
@@ -160,63 +135,20 @@ export default function Tasks() {
           </div>
         </div>
 
-        {/* Mobile search */}
-        <div className="sm:hidden mb-4">
-          <div className="flex items-center bg-white border border-gray-200 rounded-lg shadow-sm px-3 py-2">
-            <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-gray-400 mr-2" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="m21 21-4.3-4.3m0 0A7.5 7.5 0 1 0 5 5a7.5 7.5 0 0 0 11.7 11.7Z" />
-            </svg>
-            <input
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search tasks..."
-              className="w-full outline-none text-sm"
-            />
-            {loadingMore && <span className="ml-2 text-xs text-blue-600">...</span>}
-            {searchTerm && (
-              <button
-                onClick={clearSearch}
-                className="ml-2 text-gray-400 hover:text-gray-600"
-                title="Clear"
-              >
-                ×
-              </button>
-            )}
-          </div>
-        </div>
-
         {/* Status filters */}
         <div className="flex gap-2 mb-4">
-          <button
-            onClick={() => setFilterStatus("uncompleted")}
-            className={`px-3 py-1 rounded-lg text-sm font-medium ${
-              filterStatus === "uncompleted"
+          {["uncompleted", "completed", "all"].map((status) => (
+            <button
+              key={status}
+              onClick={() => setFilterStatus(status)}
+              className={`px-3 py-1 rounded-lg text-sm font-medium capitalize ${filterStatus === status
                 ? "bg-blue-600 text-white"
                 : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-            }`}
-          >
-            Uncompleted
-          </button>
-          <button
-            onClick={() => setFilterStatus("completed")}
-            className={`px-3 py-1 rounded-lg text-sm font-medium ${
-              filterStatus === "completed"
-                ? "bg-blue-600 text-white"
-                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-            }`}
-          >
-            Completed
-          </button>
-          <button
-            onClick={() => setFilterStatus("all")}
-            className={`px-3 py-1 rounded-lg text-sm font-medium ${
-              filterStatus === "all"
-                ? "bg-blue-600 text-white"
-                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-            }`}
-          >
-            All
-          </button>
+                }`}
+            >
+              {status}
+            </button>
+          ))}
         </div>
 
         {/* Messages */}
@@ -225,7 +157,7 @@ export default function Tasks() {
             {message}
           </div>
         )}
-        {error && (
+        {isError && (
           <div className="mb-4 text-red-800 bg-red-50 border border-red-200 rounded-lg px-4 py-3 shadow-sm">
             {error?.response?.data?.detail || error.message}
           </div>
@@ -243,26 +175,61 @@ export default function Tasks() {
           </div>
         )}
 
-        {/* Task list in a card */}
-        <div className="bg-white rounded-xl border border-gray-200 shadow">
-          <div className="px-4 py-3 border-b border-gray-100">
-            <h2 className="text-lg font-semibold text-gray-800">Your Tasks ({pagination.total})</h2>
+        {/* Task Grid */}
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+              <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded-md text-sm">
+                {totalTasks}
+              </span>
+              Tasks Available
+            </h2>
+            <div className="text-sm text-gray-500">
+              Showing {tasks.length} of {totalTasks}
+            </div>
           </div>
-          <div className="p-2 md:p-3">
-            <TaskList onEdit={setEditTask} onDelete={handleDelete} tasks={tasks} />
-            {loadingMore && (
-              <div className="flex justify-center items-center py-4 text-blue-600">
-                <Hourglass className="animate-pulse mr-2" /> Loading more tasks...
+
+          {tasks.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {tasks.map((task) => (
+                <div key={task.id} ref={lastTaskRef}>
+                  <TaskItem task={task} onEdit={setEditTask} /> {/* TaskItem is now a card */}
+                </div>
+              ))}
+            </div>
+          ) : (
+            !isLoading && (
+              <div className="text-center py-20 bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200">
+                <div className="inline-flex items-center justify-center w-16 h-16 bg-white rounded-full shadow-sm mb-4">
+                  <Hourglass className="w-8 h-8 text-gray-300" />
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-1">No tasks found</h3>
+                <p className="text-gray-500 max-w-sm mx-auto">
+                  {searchTerm ? `No results for "${searchTerm}"` : "Get started by creating your first task!"}
+                </p>
+                {!searchTerm && (
+                  <button
+                    onClick={() => setShowForm(true)}
+                    className="mt-4 text-blue-600 font-semibold hover:text-blue-700"
+                  >
+                    + Create Task
+                  </button>
+                )}
               </div>
-            )}
-            <div ref={lastTaskRef} style={{ height: "1px" }} /> {/* Observer target */}
-            {!pagination.hasMore && !loadingMore && tasks.length > 0 && (
-              <p className="text-center text-gray-500 py-4">No more tasks to load.</p>
-            )}
-            {tasks.length === 0 && !loading && !loadingMore && (
-              <p className="text-gray-500 text-center py-4">No tasks found.</p>
-            )}
-          </div>
+            )
+          )}
+
+          {isFetchingNextPage && (
+            <div className="flex justify-center items-center py-8">
+              <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+            </div>
+          )}
+
+          {!hasNextPage && tasks.length > 0 && (
+            <div className="text-center py-8 text-gray-400 text-sm font-medium uppercase tracking-widest">
+              All tasks loaded
+            </div>
+          )}
         </div>
       </div>
 

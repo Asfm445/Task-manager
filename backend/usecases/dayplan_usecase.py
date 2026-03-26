@@ -67,6 +67,12 @@ class DayPlanUseCase:
 
                 # Pass the domain model directly to repository
                 created_timelog = await self.uow.dayplan_repo.create_time_log(time_log)
+
+                # Reset AI analysis for the task
+                await self.uow.task_repo.update_task(task.id, {
+                    "ai_feedback": None,
+                    "ai_recommendations": None
+                })
             except Exception:
                 await self.uow.rollback()
                 raise
